@@ -325,7 +325,7 @@ if (runningAsPlugin):
                                     'Commercial use is not allowed.\n')
             self.box.addWidget(self.disclaimer)
             self.apiKeyLabel = QtWidgets.QLabel(self)
-            self.apiKeyLabel.setText('Google Custom Search API')
+            self.apiKeyLabel.setText('Google Custom Search API Key')
             self.box.addWidget(self.apiKeyLabel)
             self.apiKeyDescription = QtWidgets.QLabel(self)
             self.apiKeyDescription.setText('TODO' '... sorry')
