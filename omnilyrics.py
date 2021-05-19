@@ -29,7 +29,7 @@ PLUGIN_AUTHOR = 'Pedro Vernetti G.'
 PLUGIN_DESCRIPTION = 'Fetch lyrics from multiple sites via Google Custom Search Engine. ' \
                      'Lyrics provided are for educational purposes and personal use only. ' \
                      'Commercial use is not allowed.<br /><br />' \
-                     'In order to use OmniLyrics you need to set up your own Google Custom Search Engine at ' \
+                     'In order to use ' + PLUGIN_NAME + ' you need to set up your own Google Custom Search Engine at ' \
                      '<a href="https://cse.google.com/cse/create/new">cse.google.com</a> ' \
                      'and get your own Google Custom Search API key at ' \
                      '<a href="https://developers.google.com/custom-search/v1/overview#api_key">developers.google.com</a>.'
@@ -311,7 +311,7 @@ if (runningAsPlugin):
     class OmniLyricsOptionsPage( OptionsPage ):
 
         NAME = r'omnilyrics'
-        TITLE = r'OmniLyrics'
+        TITLE = PLUGIN_NAME
         PARENT = r'plugins'
 
         options = [TextOption(r'setting', r'gcsAPIKey', r' '),
@@ -320,13 +320,15 @@ if (runningAsPlugin):
         def __init__( self, parent=None ):
             super().__init__(parent)
             self.box = QtWidgets.QVBoxLayout(self)
+            self.disclaimer = QtWidgets.QLabel(self)
+            self.disclaimer.setText('Lyrics fetched by ' + PLUGIN_NAME + ' are for educational purposes and personal use only.\n'
+                                    'Commercial use is not allowed.\n')
+            self.box.addWidget(self.disclaimer)
             self.apiKeyLabel = QtWidgets.QLabel(self)
             self.apiKeyLabel.setText('Google Custom Search API')
             self.box.addWidget(self.apiKeyLabel)
             self.apiKeyDescription = QtWidgets.QLabel(self)
-            self.apiKeyDescription.setText('Happi.dev Music provides millions of lyrics from artist all around the world. '
-                                           'Lyrics provided are for educational purposes and personal use only. Commercial use is not allowed. '
-                                           'In order to use Happi.dev Music you need to get a free API key <a href="https://happi.dev">here</a>.')
+            self.apiKeyDescription.setText('TODO' '... sorry')
             self.apiKeyDescription.setOpenExternalLinks(True)
             self.box.addWidget(self.apiKeyDescription)
             self.apiKeyInput = QtWidgets.QLineEdit(self)
@@ -335,9 +337,7 @@ if (runningAsPlugin):
             self.idLabel.setText('Engine ID (of your Google Custom Search Engine)')
             self.box.addWidget(self.idLabel)
             self.idDescription = QtWidgets.QLabel(self)
-            self.idDescription.setText('Happi.dev Music provides millions of lyrics from artist all around the world. '
-                                       'Lyrics provided are for educational purposes and personal use only. Commercial use is not allowed. '
-                                       'In order to use Happi.dev Music you need to get a free API key <a href="https://happi.dev">here</a>.')
+            self.idDescription.setText('TODO' '... sorry')
             self.idDescription.setOpenExternalLinks(True)
             self.box.addWidget(self.idDescription)
             self.idInput = QtWidgets.QLineEdit(self)
@@ -367,5 +367,5 @@ else:
     lyrics = r''
     if (len(argv) == 4): lyrics = omnilyrics.fetchLyrics(argv[-3], argv[-2], argv[-1])
     elif (len(argv) == 3): lyrics = omnilyrics.fetchLyrics(argv[-2], argv[-1], r'und')
-    else: print("Usage: '" + argv[0] + "' ARTIST TITLE [LANGUAGE]")
+    else: print("Usage: python3 '" + argv[0] + "' ARTIST TITLE [LANGUAGE]")
     if (len(lyrics)): print(lyrics)
