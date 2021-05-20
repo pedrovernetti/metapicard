@@ -232,7 +232,6 @@ class SuperComment( BaseAction ):
         album = re.sub(r'\s+', r' ', album).strip()
         normalizedAlbum = r' ' + album.casefold() + r' '
         if (not album): return
-        print(album, r'[' + kind + r']', r'(' + subkind + r')')
         if (((subkind == r'demo') or (kind == r'demo')) and (not re.match(r'\Wdemo\W* ', normalizedAlbum))):
             album += r' (demo)'
         elif ((kind == r'single') and (not re.match(r'\Wsingle\W*$', normalizedAlbum))):
