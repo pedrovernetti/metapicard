@@ -142,6 +142,7 @@ class SuperComment( BaseAction ):
         albumartist = metadata.get(r'albumartist', metadata.get(r'~albumartists', r''))
         if (re.sub(r'[\s_,.-]', r'', company) == re.sub(r'[\s_,.-]', r'', albumartist)):
             return r'independent'
+        if (re.match(r'^\W*(n(one|ull)\W*)?$', catalogNumber.casefold())): catalogNumber = r''
         if (len(catalogNumber)): return (company + r' (' + catalogNumber + r');')
         else: return (company + r';')
 
