@@ -29,11 +29,14 @@ PLUGIN_API_VERSIONS = ['2.0', '2.1', '2.2', '2.3', '2.4', '2.5', '2.6']
 PLUGIN_LICENSE = 'GPLv3'
 PLUGIN_LICENSE_URL = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
 
-from picard import log
+from PyQt5 import QtWidgets
+from picard.config import BoolOption
+from picard import config, log
 from picard.file import File
 from picard.metadata import register_track_metadata_processor
 from picard.track import Track
 from picard.ui.itemviews import BaseAction, register_file_action, register_track_action
+from picard.ui.options import OptionsPage, register_options_page
 
 
 
@@ -125,7 +128,7 @@ class SuperComment( BaseAction ):
     def _company( self, metadata ):
         company = metadata.get(r'label', metadata.get(r'company', r'')).strip()
         if (not company): company = metadata.get(r'organization', r'').strip()
-        if (not company): publisher = metadata.get(r'publisher', r'?').strip()
+        if (not company): company = metadata.get(r'publisher', r'?').strip()
         metadata.pop(r'label', None)
         metadata.pop(r'labelcode', None)
         metadata.pop(r'company', None)
@@ -143,8 +146,9 @@ class SuperComment( BaseAction ):
         else: return (company + r';')
 
     def _formatWithInches( self, x ):
-        inches = x.group(2).replace(r',', r'.')
-        if (len(inches)): inches += r'"'
+        inches = x.group(2)
+        if (not inches): inches = r''
+        if (len(inches)): inches = inches.replace(r',', r'.') + r'"'
         what = x.group(4)
         if (r'floppy' in what): what = r'floppy disk'
         elif (r'flexi' in what): what = r'flexi disc'
@@ -153,18 +157,22 @@ class SuperComment( BaseAction ):
 
     def _formatDVD( self, x ):
         hd = x.group(1)
+        if (not hd): hd = r''
         av = x.group(3)
+        if (not av): av = r''
         if (av == r'plus'): return r'DVDplus'
         return ((r'HD-' if (len(hd)) else r'') + r'DVD' + ((r'-' + av[0].upper()) if (len(av)) else r''))
 
     def _formatBluRay( self, x ):
         what = r'Blu-Ray'
-        if (len(x.group(2))): what += r'-R'
-        return what
+        if (not x.group(2)): return what
+        else: return (what + r'-R')
 
     def _formatCD( self, x ):
         prefix = x.group(1)
+        if (not prefix): prefix = r''
         suffix = x.group(2)
+        if (not suffix): suffix = r''
         suffix = r'' if (not suffix) else suffix[-1].upper()
         suffix = r'+G' if (suffix == r'G') else (r'-R' if (suffix == r'R') else suffix)
         if (not prefix): return (r'CD' + suffix)
@@ -197,7 +205,7 @@ class SuperComment( BaseAction ):
 
     def _format( self, what ):
         if ((r'other' in what) or (not what)): return r''
-        if (re.match(r'Digital([\s_-]*Media)?', what)): return r'digital'
+        if (r'digital' in what): return r'digital'
         what = re.sub(r'[\s_]+', r' ', re.sub(r'[\s_]*\([^)]\)', r'', what))
         vinyl = re.compile(r'(([0-9,.]+)(''|")[\s-]*)?(vinyl|shellac|flexi[\s-]*dis[ck]|floppy|laser[ -]?dis[ck])')
         if (vinyl.match(what)): return vinyl.sub(self._formatWithInches, what)
@@ -218,6 +226,24 @@ class SuperComment( BaseAction ):
         if (other.match(what)): return other.sub(self._formatOther, what)
         return r''
 
+    def _appendReleaseTypeToAlbum( self, metadata, kind, subkind ):
+        album = metadata.get(r'album', metadata.get(r'~releasegroup', r''))
+        album = re.sub(r'\s+', r' ', re.sub(r'\W*(demo|single|mixtape|ep)\W*$', r'', album)).strip()
+        normalizedAlbum = r' ' + album.casefold() + r' '
+        if (not album): return
+        print(album, r'[' + kind + r']', r'(' + subkind + r')')
+        if (((subkind == r'demo') or (kind == r'demo')) and (not re.match(r'\Wdemo\W* ', normalizedAlbum))):
+            album += r' (demo)'
+        elif ((kind == r'single') and (not re.match(r'\Wsingle\W*$', normalizedAlbum))):
+            album += r' (single)'
+        elif ((kind == r'ep') and (not re.match(r'\Wep\W*$', normalizedAlbum))):
+            album += r' EP'
+        elif ((subkind == r'mixtape') and (not re.match(r'\Wmixtape\W', normalizedAlbum))):
+            album += r' Mixtape'
+        else:
+            return
+        metadata[r'album'] = album
+
     def _what( self, metadata ):
         what = self._format(metadata.get(r'media', r'').casefold().strip())
         metadata.pop(r'media', None)
@@ -228,21 +254,27 @@ class SuperComment( BaseAction ):
         kind = metadata.get(r'releasetype', metadata.get(r'~primaryreleasetype', r'')).strip().casefold()
         metadata.pop(r'releasetype', None)
         metadata.pop(r'~primaryreleasetype', None)
-        if (kind == r'ep'): what += r' EP'
-        elif (kind == r'other'): what += r' release'
-        else: what += (r' ' + kind)
         subkind = metadata.get(r'~secondaryreleasetype', r'').strip().casefold()
         metadata.pop(r'~secondaryreleasetype', None)
-        if ((not subkind) and (metadata.get(r'compilation', r'') == r'1')): subkind = r'compilation'
+        if ((not subkind) and (metadata.get(r'compilation', None) == r'1')): subkind = r'compilation'
+        elif ((subkind == r'street') or (r'mixtape' in subkind)): subkind = r'mixtape'
+        elif (r'spoken' in subkind): subkind = r'spokenword'
         metadata.pop(r'compilation', None)
-        if ((subkind == r'street') or (r'mixtape' in subkind)): subkind = r'mixtape'
-        if (r'spoken' in subkind): subkind = r'spokenword'
-        if (subkind in self._trueSubkinds): kind = r' ' + subkind + kind
-        elif (subkind in self._kindSubkinds): kind = r' ' + subkind
-        elif (re.match(r'dj.*mix', subkind)): kind = r' DJ mix'
+        if (config.setting[r'appendReleaseTypeToAlbum']):
+            self._appendReleaseTypeToAlbum(metadata, kind, subkind)
+        if ((subkind == r'demo') or (kind == r'demo')):
+            what += r' demo'
+        else:
+            if (kind == r'ep'): what += r' EP'
+            elif (kind == r'other'): what += r' release'
+            else: what += (r' ' + kind)
+            if (subkind in self._trueSubkinds): kind = r' ' + subkind + kind
+            elif (subkind in self._kindSubkinds): kind = r' ' + subkind
+            elif (re.match(r'dj.*mix', subkind)): kind = r' DJ mix'
         djmixer = metadata.get(r'djmixer', r'')
         if (len(djmixer) and (not metadata[r'albumartist'])): metadata[r'albumartist'] = djmixer
         metadata.pop(r'djmixer', None)
+        if (what[0] != r' '): what = r' ' + what
         return (r' ?;' if (re.match(r'^\s*$', what)) else (what + r'; '))
 
     def _whereAndWhen( self, metadata ):
@@ -272,8 +304,9 @@ class SuperComment( BaseAction ):
         metadata.pop(r'script', None)
         metadata.pop(r'license', None)
         metadata.pop(r'copyright', None)
-        barcode = metadata.get(r'barcode', r'')
-        if (len(barcode)): comment += (r' barcode: ' + re.sub(r'[^0-9]', r'', barcode) + r',')
+        if (config.setting[r'includeBarcode']):
+            barcode = metadata.get(r'barcode', r'')
+            if (len(barcode)): comment += (r' barcode: ' + re.sub(r'[^0-9]', r'', barcode) + r',')
         metadata.pop(r'barcode', None)
         # isrc = metadata.get(r'isrc', r'')
         # if (len(isrc)): comment += (r' ISRC: ' + re.sub(r'[^0-9]', r'', isrc) + r',')
@@ -301,6 +334,42 @@ class SuperComment( BaseAction ):
 
 
 
+class SuperCommentOptionsPage( OptionsPage ):
+
+    NAME = PLUGIN_NAME.casefold()
+    TITLE = PLUGIN_NAME
+    PARENT = r'tags'
+
+    options = [BoolOption(r'setting', r'appendReleaseTypeToAlbum', True),
+               BoolOption(r'setting', r'includeBarcode', True)]
+
+    def __init__( self, parent=None ):
+        super().__init__(parent)
+        self.box = QtWidgets.QVBoxLayout(self)
+        self.appendReleaseTypeToAlbum = QtWidgets.QCheckBox(self)
+        self.appendReleaseTypeToAlbum.setCheckable(True)
+        self.appendReleaseTypeToAlbum.setChecked(True)
+        self.appendReleaseTypeToAlbum.setText(r'Add relevant release type info. to album title before moving it to comment')
+        self.box.addWidget(self.appendReleaseTypeToAlbum)
+        self.includeBarcode = QtWidgets.QCheckBox(self)
+        self.includeBarcode.setCheckable(True)
+        self.includeBarcode.setChecked(True)
+        self.includeBarcode.setText(r'Include barcode into the generated comment (when available)')
+        self.box.addWidget(self.includeBarcode)
+        self.spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.box.addItem(self.spacer)
+
+    def load( self ):
+        self.appendReleaseTypeToAlbum.setChecked(config.setting[r'appendReleaseTypeToAlbum'])
+        self.includeBarcode.setChecked(config.setting[r'includeBarcode'])
+
+    def save( self ):
+        config.setting[r'appendReleaseTypeToAlbum'] = self.appendReleaseTypeToAlbum.isChecked()
+        config.setting[r'includeBarcode'] = self.includeBarcode.isChecked()
+
+
+
 register_file_action(SuperComment())
 # register_track_action(SuperComment())
 register_track_metadata_processor(SuperComment().process)
+register_options_page(SuperCommentOptionsPage)
