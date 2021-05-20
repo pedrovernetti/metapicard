@@ -275,7 +275,31 @@ class OmniLyrics( BaseAction ):
         return r'' # no results
 
     def process( self, album, metadata, track, release, action=False ):
-        if ((not action) and (len(metadata.get(r'lyrics', r'')))): return
+        lyrics = metadata.get(r'lyrics', r'')
+        if (not lyrics): metadata[r'lyrics'] = r''
+        nonstandardLyricsTags = []
+        for key in metadata:
+            if key.startswith(r'lyrics-none'):
+                if (not lyrics): metadata[r'lyrics'] = metadata[key]
+                nonstandardLyricsTags += [key]
+        for tagName in nonstandardLyricsTags: metadata.pop(tagName, None)
+        language = metadata.get(r'language', metadata.get(r'~releaselanguage', r'und'))
+        if (language not in iso639.languages.part3):
+            language = re.sub(r'[\s_-]+', r' ', language)
+            if (re.sub(language.title() in iso639.languages.name):
+                language = iso639.languages.name(language.title()).part3
+            elif (language in iso639.languages.part1):
+                language = iso639.languages.part1(language).part3
+            else:
+                language = r'und'
+        if (language == r'und'):
+            metadata.pop(r'language', None)
+        elif (language == r'zxx'):
+            metadata[r'lyrics'] = r'[Instrumental]'
+            return
+        else:
+            metadata[r'language'] = language
+        if ((not action) and (len(lyrics) > 4)): return
         artist = metadata.get(r'artist', None)
         if (not artist):
             log.debug(r'{}: cannot fetch lyrics without artist information'.format(PLUGIN_NAME))
@@ -284,21 +308,6 @@ class OmniLyrics( BaseAction ):
         if (not title):
             log.debug(r'{}: cannot fetch lyrics without track title information'.format(PLUGIN_NAME))
             return
-        language = metadata.get(r'language', metadata.get(r'~releaselanguage', r'und'))
-        if (language not in iso639.languages.part3):
-            if (language.title() in iso639.languages.name):
-                language = iso639.languages.name(language.title()).part3
-            elif (language in iso639.languages.part1):
-                language = iso639.languages.part1(language).part3
-            else:
-                language = r'und'
-        if (language == r'und'):
-            metadata[r'language'] = r''
-        elif (language == r'zxx'):
-            metadata[r'lyrics'] = r'[Instrumental]'
-            return
-        else:
-            metadata[r'language'] = language
         log.debug(r'{}: fetching lyrics for "{}" by '.format(PLUGIN_NAME, title, artist))
         lyrics = self.fetchLyrics(artist, title, language)
         if (not lyrics): return
