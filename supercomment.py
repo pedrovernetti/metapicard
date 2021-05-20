@@ -11,7 +11,7 @@
 #
 # Author: Pedro Vernetti G.
 # Name: SuperComment
-# Description: MusicBrainz Picard plugin to merge all/most release info into the comment field.
+# Description: MusicBrainz Picard plugin to merge all/most release info into the comment tag.
 #
 # #  In order to have this plugin working (if it is currently not), place it at:
 #    ~/.config/MusicBrainz/Picard/plugins
@@ -23,7 +23,7 @@ import re
 
 PLUGIN_NAME = 'SuperComment'
 PLUGIN_AUTHOR = 'Pedro Vernetti G.'
-PLUGIN_DESCRIPTION = 'Merge most/all release-specific information into the comment field.'
+PLUGIN_DESCRIPTION = 'Merge most/all release-specific information into the comment tag.'
 PLUGIN_VERSION = '0.1'
 PLUGIN_API_VERSIONS = ['2.0', '2.1', '2.2', '2.3', '2.4', '2.5', '2.6']
 PLUGIN_LICENSE = 'GPLv3'
@@ -291,7 +291,6 @@ class SuperComment( BaseAction ):
         metadata.pop(r'Comment', None)
         metadata.pop(r'Comment:', None)
         metadata[r'comment'] = re.sub(r'[,;]$', r'', re.sub(r'\s+', r' ', comment.strip()))
-        print(metadata)
 
     def callback( self, objs ):
         for obj in objs:
@@ -303,5 +302,5 @@ class SuperComment( BaseAction ):
 
 
 register_file_action(SuperComment())
-register_track_action(SuperComment())
+# register_track_action(SuperComment())
 register_track_metadata_processor(SuperComment().process)

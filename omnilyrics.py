@@ -293,18 +293,16 @@ class OmniLyrics( BaseAction ):
             else:
                 language = r'und'
         if (language == r'und'):
-            metadata[r'language'] = r'' #TODO is this the right key?
+            metadata[r'language'] = r''
         elif (language == r'zxx'):
             metadata[r'lyrics'] = r'[Instrumental]'
             return
         else:
-            metadata[r'language'] = language #TODO is this the right key?
+            metadata[r'language'] = language
         log.debug(r'{}: fetching lyrics for "{}" by '.format(PLUGIN_NAME, title, artist))
         lyrics = self.fetchLyrics(artist, title, language)
         if (not lyrics): return
         log.debug('{}: lyrics found for for "{}" by {}'.format(PLUGIN_NAME, title, artist))
-        print(lyrics)
-        print('\n')
         if (not metadata.get(r'lyrics', None)): metadata[r'lyrics'] = lyrics
 
     def callback( self, objs ):
@@ -366,7 +364,7 @@ if (runningAsPlugin):
 
 
     register_file_action(OmniLyrics())
-    register_track_action(OmniLyrics())
+    # register_track_action(OmniLyrics())
     # register_track_metadata_processor(OmniLyrics().process)
     register_options_page(OmniLyricsOptionsPage)
 
