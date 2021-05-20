@@ -228,7 +228,8 @@ class SuperComment( BaseAction ):
 
     def _appendReleaseTypeToAlbum( self, metadata, kind, subkind ):
         album = metadata.get(r'album', metadata.get(r'~releasegroup', r''))
-        album = re.sub(r'\s+', r' ', re.sub(r'\W*(demo|single|mixtape|ep)\W*$', r'', album)).strip()
+        album = re.sub(r'\W*(demo|single|mixtape|ep)\W*$', r'', album, flags=re.IGNORECASE)
+        album = re.sub(r'\s+', r' ', album).strip()
         normalizedAlbum = r' ' + album.casefold() + r' '
         if (not album): return
         print(album, r'[' + kind + r']', r'(' + subkind + r')')
