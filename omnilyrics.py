@@ -46,7 +46,7 @@ if (not (__name__ == "__main__")):
     from picard.file import File
     from picard.metadata import register_track_metadata_processor
     from picard.track import Track
-    from picard.ui.itemviews import BaseAction, register_track_action
+    from picard.ui.itemviews import BaseAction, register_file_action, register_track_action
     from picard.ui.options import OptionsPage, register_options_page
 else:
     BaseAction = object
@@ -257,7 +257,9 @@ class OmniLyrics( BaseAction ):
 
     def fetchLyrics( self, artist, title, language ):
         if (not runningAsPlugin):
-            print('title:  ', title, '\nartist: ', artist, '\nlang:   ', language)
+            lang = iso639.languages.part3.get(language, iso639.languages.part3[r'und']).name
+            lang = language + r' (' + lang + r')'
+            print('\n TITLE:    ', title, '\n ARTIST:   ', artist, '\n LANGUAGE: ', lang, '\n')
         query = self._query((artist.strip() + r' ' + title.strip()), language)
         if (not query): return r''
         query = query.json()
@@ -272,37 +274,45 @@ class OmniLyrics( BaseAction ):
             if (lyrics): return re.sub(r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+', r' ', lyrics)
         return r'' # no results
 
-    def process( self, album, metadata, track, release ):
-        artist = metadata[r'artist']
+    def process( self, album, metadata, track, release, action=False ):
+        if ((not action) and (len(metadata.get(r'lyrics', r'')))): return
+        artist = metadata.get(r'artist', None)
         if (not artist):
             log.debug(r'{}: cannot fetch lyrics without artist information'.format(PLUGIN_NAME))
             return
-        title = metadata[r'title']
+        title = metadata.get(r'title', None)
         if (not title):
             log.debug(r'{}: cannot fetch lyrics without track title information'.format(PLUGIN_NAME))
             return
-        language = metadata[r'language']
+        language = metadata.get(r'language', metadata.get(r'~releaselanguage', r'und'))
         if (language not in iso639.languages.part3):
             if (language.title() in iso639.languages.name):
                 language = iso639.languages.name(language.title()).part3
-                metadata[r'language'] = language
             elif (language in iso639.languages.part1):
                 language = iso639.languages.part1(language).part3
-                metadata[r'language'] = language
             else:
                 language = r'und'
         if (language == r'und'):
-            metadata[r'language'] = r''
+            metadata[r'language'] = r'' #TODO is this the right key?
         elif (language == r'zxx'):
             metadata[r'lyrics'] = r'[Instrumental]'
             return
+        else:
+            metadata[r'language'] = language #TODO is this the right key?
         log.debug(r'{}: fetching lyrics for "{}" by '.format(PLUGIN_NAME, title, artist))
         lyrics = self.fetchLyrics(artist, title, language)
         if (not lyrics): return
         log.debug('{}: lyrics found for for "{}" by {}'.format(PLUGIN_NAME, title, artist))
         print(lyrics)
         print('\n')
-        if (not metadata[r'lyrics']): metadata[r'lyrics'] = lyrics
+        if (not metadata.get(r'lyrics', None)): metadata[r'lyrics'] = lyrics
+
+    def callback( self, objs ):
+        for obj in objs:
+            if isinstance(obj, Track):
+                for f in obj.linked_files: self.process(None, f.metadata, None, None, True)
+            elif isinstance(obj, File):
+                self.process(None, obj.metadata, None, None, True)
 
 
 
@@ -355,8 +365,9 @@ if (runningAsPlugin):
 
 
 
+    register_file_action(OmniLyrics())
     register_track_action(OmniLyrics())
-    register_track_metadata_processor(OmniLyrics().process)
+    # register_track_metadata_processor(OmniLyrics().process)
     register_options_page(OmniLyricsOptionsPage)
 
 
