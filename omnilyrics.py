@@ -311,7 +311,6 @@ class OmniLyrics( BaseAction ):
         return (iso639.languages.part1[lang.lang[:2]].part3, lang.prob)
 
     def process( self, album, metadata, track, release, action=False ):
-        lyrics = metadata.get(r'lyrics', r'')
         language = metadata.get(r'language', metadata.get(r'~releaselanguage', r'und')).strip().casefold()
         if (language not in iso639.languages.part3):
             language = self._fixedLanguage(language)
@@ -320,11 +319,12 @@ class OmniLyrics( BaseAction ):
         else:
             metadata[r'language'] = language
             if (language == r'zxx'):
-                lyrics = r'[instrumental]'
+                metadata[r'lyrics'] = r'[instrumental]'
                 return
+        lyrics = metadata.get(r'lyrics', r'')
         nonstandardLyricsTags = []
         for key in metadata:
-            if key.startswith(r'lyrics-none'):
+            if (re.match(r'^(.*\W)?lyrics\W.*$', key, flags=re.IGNORECASE)):
                 if (not lyrics): lyrics = metadata[key]
                 nonstandardLyricsTags += [key]
         for tagName in nonstandardLyricsTags: metadata.pop(tagName, None)
@@ -335,12 +335,14 @@ class OmniLyrics( BaseAction ):
             title = metadata.get(r'title', metadata.get(r'_recordingtitle', metadata.get(r'work', None)))
             fetchedLyrics = self.fetchLyrics(artist, title, language)
             if (len(fetchedLyrics)): lyrics = fetchedLyrics
-        detectedLanguage = self._detectLanguage(lyrics)
         if (re.match(r'^\Winstrumental\W$', lyrics, flags=re.IGNORECASE)):
+            metadata[r'lyrics'] = r'[instrumental]'
             metadata[r'language'] = r'zxx'
+            return
+        detectedLanguage = self._detectLanguage(lyrics)
         elif ((language == r'und') or (detectedLanguage[1] > 0.9)):
             if (detectedLanguage[0] != r'und'): metadata[r'language'] = detectedLanguage[0]
-        metadata[r'lyrics'] = lyrics
+        metadata[r'lyrics'] = re.sub(r'\n\n+', r'\n\n', lyrics, flags=re.MULTILINE)
 
     def callback( self, objs ):
         for obj in objs:
