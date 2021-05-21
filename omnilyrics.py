@@ -291,7 +291,7 @@ class OmniLyrics( BaseAction ):
             result_url = queryResults[i][r'link']
             try: lyrics = self._lyrics(result_url)
             except: lyrics = r''
-            if (lyrics): return re.sub(r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+', r' ', lyrics)
+            if (lyrics): return lyrics
         return r'' # no results
 
     def _fixedLanguage( self, language ):
@@ -309,6 +309,15 @@ class OmniLyrics( BaseAction ):
         if (not lyrics): return (r'und', 1)
         lang = langdetect.detect_langs(lyrics)[0]
         return (iso639.languages.part1[lang.lang[:2]].part3, lang.prob)
+
+    def lyricsMadeTidy( self, lyrics ):
+        lyrics = re.sub(r'(\r+\n|\r*\n\r+|\u0085)', r'\n', lyrics, flags=re.MULTILINE)
+        lyrics = re.sub(r'\n\n+', r'\n\n', lyrics.replace(r'\r', r'\n'), flags=re.MULTILINE)
+        horizontalSpace = r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]'
+        lyrics = re.sub((horizontalSpace + r'+'), r' ', lyrics)
+        lyrics = re.sub(r' (\n|$)', r'\1', lyrics, flags=re.MULTILINE)
+        lyrics = re.sub(r'(^|\n) ', r'\1', lyrics, flags=re.MULTILINE)
+        return lyrics
 
     def process( self, album, metadata, track, release, action=False ):
         language = metadata.get(r'language', metadata.get(r'~releaselanguage', r'und')).strip().casefold()
@@ -342,7 +351,7 @@ class OmniLyrics( BaseAction ):
         detectedLanguage = self._detectLanguage(lyrics)
         elif ((language == r'und') or (detectedLanguage[1] > 0.9)):
             if (detectedLanguage[0] != r'und'): metadata[r'language'] = detectedLanguage[0]
-        metadata[r'lyrics'] = re.sub(r'\n\n+', r'\n\n', lyrics, flags=re.MULTILINE)
+        metadata[r'lyrics'] = self.lyricsMadeTidy(lyrics)
 
     def callback( self, objs ):
         for obj in objs:
@@ -428,4 +437,4 @@ else:
     if (len(argv) == 4): lyrics = omnilyrics.fetchLyrics(argv[-3], argv[-2], argv[-1])
     elif (len(argv) == 3): lyrics = omnilyrics.fetchLyrics(argv[-2], argv[-1], r'und')
     else: print("Usage: python3 '" + argv[0] + "' ARTIST TITLE [LANGUAGE]")
-    if (len(lyrics)): print(lyrics)
+    if (len(lyrics)): print(omnilyrics.lyricsMadeTidy(lyrics))
