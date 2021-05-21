@@ -47,6 +47,8 @@ class SuperComment( BaseAction ):
     _trueSubkinds = {r'compilation', r'live', r'remix', r'spokenword', r'soundtrack'}
     _kindSubkinds = {r'mixtape', r'audiobook', r'interview', r'audio drama'}
 
+    _typeSuffix = re.compile(r'\W*(demo|single|mixtape|ep|bootleg)\W*$', re.IGNORECASE)
+
     _countryNames = { r'AF': r'Afghanistan', r'AX': r'Åland Islands', r'AL': r'Albania',
                       r'DZ': r'Algeria', r'AS': r'American Samoa', r'AD': r'Andorra',
                       r'AO': r'Angola', r'AI': r'Anguilla', r'AQ': r'Antarctica',
@@ -227,10 +229,47 @@ class SuperComment( BaseAction ):
         if (other.match(what)): return other.sub(self._formatOther, what)
         return r''
 
-    def _appendReleaseTypeToAlbum( self, metadata, status, kind, subkind ):
-        album = metadata.get(r'album', metadata.get(r'~releasegroup', r''))
-        album = re.sub(r'\W*(demo|single|mixtape|ep|bootleg)\W*$', r'', album, flags=re.IGNORECASE)
-        album = re.sub(r'\s+', r' ', album).strip()
+    def _generateAlbumFormatTag( self, album ):
+        albumFormat = {}
+        lastDiscNumber = 0
+        for track in album.tracks:
+            if (int(track.metadata.get(r'discnumber', r'1')) > lastDiscNumber):
+                what = self._format(track.metadata.get(r'media', r'').casefold().strip())
+                lastDiscNumber += 1
+                if (len(what)):
+                    if (what not in albumFormat): albumFormat[what] = 1
+                    else: albumFormat[what] += 1
+        if (not albumFormat): return r''
+        finalFormatTag = r''
+        for item in albumFormat.items():
+            if (item[1] == 1): finalFormatTag += (item[0] + r' + ')
+            else: finalFormatTag += (str(item[1]) + r'x ' + item[0] + r' + ')
+        return finalFormatTag[:-3]
+
+    def _checkedKind( self, currentKind, metadata, album ):
+        if (currentKind not in {r'album', r'single', r'ep', r'', r'other'}): return currentKind
+        if (int(metadata.get(r'totaldiscs', 1)) > 1):
+            if ((currentKind == r'single') or (currentKind == r'ep') or (not currentKind)): return r'album'
+            else: return currentKind
+        totaltracks = int(metadata.get(r'~totalalbumtracks', metadata.get(r'totaltracks', r'0')))
+        if (album):
+            if (not totaltracks): totaltracks = len(album.tracks)
+            length = album.metadata.length // 60000
+        elif (totaltracks):
+            length = (metadata.length // 60000)
+            length = ((length if (length <= 5) else 5) if (length >= 2) else 2) * totaltracks
+        else:
+            return currentKind
+        if ((length > 40) or (totaltracks > 7)): return r'album'
+        elif ((totaltracks < 3) and (length < 10)): return r'single'
+        elif ((not currentKind) or (currentKind == r'other')):
+            if ((totaltracks > 8) or (length > 30)): return r'album'
+            elif ((totaltracks < 3) and (length < 10)): return r'single'
+            else: return r'ep'
+        return currentKind
+
+    def _appendReleaseTypeToAlbum( self, metadata, status, kind, subkind, album ):
+        album = re.sub(r'\s+', r' ', album)
         normalizedAlbum = r' ' + album.casefold() + r' '
         if (not album): return
         if ((status == r'bootleg') and (not re.match(r'\Wbootleg\W* ', normalizedAlbum))):
@@ -247,25 +286,8 @@ class SuperComment( BaseAction ):
             return
         metadata[r'album'] = album
 
-    def _generateAlbumFormatTag( self, album ):
-        albumFormat = {}
-        lastDiscNumber = 0
-        for track in album.tracks:
-            if (int(track.metadata.get(r'discnumber', r'1')) > lastDiscNumber):
-                what = self._format(track.metadata.get(r'media', r'').casefold().strip())
-                lastDiscNumber += 1
-                if (len(what)):
-                    if (what not in albumFormat): albumFormat[what] = 1
-                    else: albumFormat[what] += 1
-        if (not albumFormat): return r''
-        finalFormatTag = r''
-        for item in albumFormat.items():
-            if (item[1] == 1): finalFormatTag += (item[0] + r' + ')
-            else: finalFormatTag += (item[0] + r' x' + str(item[1]) + r' + ')
-        return finalFormatTag[:-3]
-
     def _what( self, metadata, album ):
-        if (int(metadata.get(r'totaldiscs', r'0')) != 1):
+        if (album and (int(metadata.get(r'totaldiscs', r'0')) != 1)):
             if (r'~supercomment_format' not in album.metadata):
                 album.metadata[r'~supercomment_format'] = self._generateAlbumFormatTag(album)
             what = album.metadata[r'~supercomment_format']
@@ -274,8 +296,6 @@ class SuperComment( BaseAction ):
         metadata.pop(r'media', None)
         status = metadata.get(r'releasestatus', r'').casefold()
         metadata.pop(r'releasestatus', None)
-        if (r'promo' in status): what += r' promo'
-        elif (r'bootleg' in status): what += r' bootleg'
         kind = metadata.get(r'releasetype', metadata.get(r'~primaryreleasetype', r'')).strip().casefold()
         metadata.pop(r'releasetype', None)
         metadata.pop(r'~primaryreleasetype', None)
@@ -285,11 +305,19 @@ class SuperComment( BaseAction ):
         elif ((subkind == r'street') or (r'mixtape' in subkind)): subkind = r'mixtape'
         elif (r'spoken' in subkind): subkind = r'spokenword'
         metadata.pop(r'compilation', None)
+        albumTitle = metadata.get(r'album', metadata.get(r'~releasegroup', r''))
+        metadata.pop(r'~releasegroup', None)
+        if (not kind): kind = self._typeSuffix.search(albumTitle).group(1).casefold()
+        albumTitle = self._typeSuffix.sub(r'', albumTitle).strip()
+        if (len(albumTitle) or (not metadata.get(r'album', None))): metadata[r'album'] = albumTitle
+        kind = self._checkedKind(kind, metadata, album)
         if (config.setting[r'appendReleaseTypeToAlbum']):
-            self._appendReleaseTypeToAlbum(metadata, status, kind, subkind)
+            self._appendReleaseTypeToAlbum(metadata, status, kind, subkind, albumTitle)
         if ((subkind == r'demo') or (kind == r'demo')):
             what += r' demo'
         else:
+            if (r'promo' in status): what += r' promo'
+            elif (r'bootleg' in status): what += r' bootleg'
             if (kind == r'ep'): what += r' EP'
             elif (kind == r'other'): what += r' release'
             else: what += (r' ' + kind)
@@ -324,7 +352,7 @@ class SuperComment( BaseAction ):
 
     def process( self, album, metadata, track, release ):
         comment = self._company(metadata)
-        comment += self._what(metadata, track.album)
+        comment += self._what(metadata, (track.album if track else None))
         comment += self._whereAndWhen(metadata)
         metadata.pop(r'script', None)
         metadata.pop(r'license', None)
@@ -356,7 +384,7 @@ class SuperComment( BaseAction ):
     def callback( self, objs ):
         for obj in objs:
             if (isinstance(obj, Track)):
-                for f in obj.linked_files: self.process(None, f.metadata, None, None)
+                for f in obj.linked_files: self.process(None, f.metadata, obj, None)
             elif (isinstance(obj, File)):
                 self.process(None, obj.metadata, None, None)
 
