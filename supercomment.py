@@ -307,7 +307,9 @@ class SuperComment( BaseAction ):
         metadata.pop(r'compilation', None)
         albumTitle = metadata.get(r'album', metadata.get(r'~releasegroup', r''))
         metadata.pop(r'~releasegroup', None)
-        if (not kind): kind = self._typeSuffix.search(albumTitle).group(1).casefold()
+        if (not kind):
+            kindFromSuffix = self._typeSuffix.search(albumTitle)
+            if (type(kindFromSuffix) == re.Match): kind = kindFromSuffix.group(1).casefold()
         albumTitle = self._typeSuffix.sub(r'', albumTitle).strip()
         if (len(albumTitle) or (not metadata.get(r'album', None))): metadata[r'album'] = albumTitle
         kind = self._checkedKind(kind, metadata, album)

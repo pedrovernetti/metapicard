@@ -318,7 +318,7 @@ class OmniLyrics( BaseAction ):
         lyrics = re.sub((horizontalSpace + r'+'), r' ', lyrics)
         lyrics = re.sub(r' (\n|$)', r'\1', lyrics, flags=re.MULTILINE)
         lyrics = re.sub(r'(^|\n) ', r'\1', lyrics, flags=re.MULTILINE)
-        return lyrics
+        return lyrics.strip()
 
     def process( self, album, metadata, track, release, action=False ):
         language = metadata.get(r'language', metadata.get(r'~releaselanguage', r'und')).strip().casefold()
