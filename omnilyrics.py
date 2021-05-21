@@ -13,14 +13,16 @@
 # Name: OmniLyrics
 # Description: MusicBrainz Picard plugin to fetch song lyrics from the web via GCS.
 #
-# #  In order to have this plugin working (if it is currently not), place it at:
-#    ~/.config/MusicBrainz/Picard/plugins
+# #  In order to have this plugin working (if it is currently not), install its dependencies:
+#    'beautifulsoup4', 'iso-639' and 'langdetect'
+# #  ...then place it at: ~/.config/MusicBrainz/Picard/plugins
 # =============================================================================================
 
 import re, time, requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 import iso639
+import langdetect
 
 
 
@@ -33,7 +35,7 @@ PLUGIN_DESCRIPTION = 'Fetch lyrics from multiple sites via Google Custom Search 
                      '<a href="https://cse.google.com/cse/create/new">cse.google.com</a> ' \
                      'and get your own Google Custom Search API key at ' \
                      '<a href="https://developers.google.com/custom-search/v1/overview#api_key">developers.google.com</a>.'
-PLUGIN_VERSION = '0.1'
+PLUGIN_VERSION = '0.2'
 PLUGIN_API_VERSIONS = ['2.0', '2.1', '2.2', '2.3', '2.4', '2.5', '2.6']
 PLUGIN_LICENSE = 'GPLv3'
 PLUGIN_LICENSE_URL = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
@@ -42,7 +44,7 @@ if (not (__name__ == "__main__")):
     runningAsPlugin = True
     from PyQt5 import QtWidgets
     from picard import config, log
-    from picard.config import TextOption
+    from picard.config import TextOption, BoolOption
     from picard.file import File
     from picard.metadata import register_track_metadata_processor
     from picard.track import Track
@@ -214,20 +216,31 @@ class OmniLyrics( BaseAction ):
                     self.requestFailureHistory.pop(netloc, None)
                 else:
                     return None
-        limit = time.time() + 10
-        while time.time() <= limit:
-            try:
-                response = requests.get(url, params=params, headers=headers)
-                if (response.status_code == 200): break
-                if (response.status_code == 429):
-                    self.requestFailureHistory[netloc] = (time.time(), 429)
-                    break
-            except:
-                pass
-        if (response.status_code != 200):
-            self.requestFailureHistory[netloc] = (time.time(), response.status_code)
-            if (not runningAsPlugin): print(r'HTTP ' + str(response.status_code))
+        try:
+            response = requests.get(url, params=params, headers=headers)
+            status = response.status_code
+        except:
+            status = 418
+        if (status == 429):
+            self.requestFailureHistory[netloc] = (time.time(), 429)
             return None
+        elif (status != 200):
+            limit = time.time() + 10
+            while time.time() <= limit:
+                try:
+                    response = requests.get(url, params=params, headers=headers)
+                    if (response.status_code == 200):
+                        status = response.status_code
+                        break
+                    if (response.status_code == 429):
+                        self.requestFailureHistory[netloc] = (time.time(), 429)
+                        return None
+                except:
+                    status = 418
+            if (status != 200):
+                self.requestFailureHistory[netloc] = (time.time(), response.status_code)
+                if (not runningAsPlugin): print(r'HTTP ' + str(response.status_code))
+                return None
         else: return response
 
     def _query( self, song, language ):
@@ -256,15 +269,22 @@ class OmniLyrics( BaseAction ):
         return None # no scrapper available for this search result
 
     def fetchLyrics( self, artist, title, language ):
+        if (not artist):
+            log.debug(r'{}: cannot fetch lyrics without artist information'.format(PLUGIN_NAME))
+            return r''
+        if (not title):
+            log.debug(r'{}: cannot fetch lyrics without track title information'.format(PLUGIN_NAME))
+            return r''
         if (not runningAsPlugin):
             lang = iso639.languages.part3.get(language, iso639.languages.part3[r'und']).name
             lang = language + r' (' + lang + r')'
             print('\n TITLE:    ', title, '\n ARTIST:   ', artist, '\n LANGUAGE: ', lang, '\n')
-        query = self._query((artist.strip() + r' ' + title.strip()), language)
+        query = re.sub(r'[^\w\s]', r'', (artist.strip() + r' ' + title.strip()))
+        query = self._query(query, language)
         if (not query): return r''
         query = query.json()
         correctedQuery = query.get(r'spelling', {}).get(r'correctedQuery')
-        if (correctedQuery): query = self._query(correctedQuery, language)
+        if (correctedQuery): query = self._query(correctedQuery, language).json()
         queryResults = query.get(r'items', [])
         # try scraping lyrics from top search results:
         for i in range(len(queryResults)):
@@ -274,45 +294,53 @@ class OmniLyrics( BaseAction ):
             if (lyrics): return re.sub(r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+', r' ', lyrics)
         return r'' # no results
 
+    def _fixedLanguage( self, language ):
+        language = re.sub(r'[\s_-]+', r' ', language)
+        if (language in iso639.languages.part1):
+            return iso639.languages.part1[language].part3
+        else:
+            language = language.title()
+            if (language in iso639.languages.name):
+                return iso639.languages.name[language].part3
+            else:
+                return r'und'
+
+    def _detectLanguage( self, lyrics ):
+        if (not lyrics): return (r'und', 1)
+        lang = langdetect.detect_langs(lyrics)[0]
+        return (iso639.languages.part1[lang.lang[:2]].part3, lang.prob)
+
     def process( self, album, metadata, track, release, action=False ):
         lyrics = metadata.get(r'lyrics', r'')
-        if (not lyrics): metadata[r'lyrics'] = r''
+        language = metadata.get(r'language', metadata.get(r'~releaselanguage', r'und')).strip().casefold()
+        if (language not in iso639.languages.part3):
+            language = self._fixedLanguage(language)
+        if (language == r'und'):
+            metadata.pop(r'language', None)
+        else:
+            metadata[r'language'] = language
+            if (language == r'zxx'):
+                lyrics = r'[instrumental]'
+                return
         nonstandardLyricsTags = []
         for key in metadata:
             if key.startswith(r'lyrics-none'):
-                if (not lyrics): metadata[r'lyrics'] = metadata[key]
+                if (not lyrics): lyrics = metadata[key]
                 nonstandardLyricsTags += [key]
         for tagName in nonstandardLyricsTags: metadata.pop(tagName, None)
-        language = metadata.get(r'language', metadata.get(r'~releaselanguage', r'und'))
-        if (language not in iso639.languages.part3):
-            language = re.sub(r'[\s_-]+', r' ', language)
-            if (re.sub(language.title() in iso639.languages.name):
-                language = iso639.languages.name(language.title()).part3
-            elif (language in iso639.languages.part1):
-                language = iso639.languages.part1(language).part3
-            else:
-                language = r'und'
-        if (language == r'und'):
-            metadata.pop(r'language', None)
-        elif (language == r'zxx'):
-            metadata[r'lyrics'] = r'[Instrumental]'
-            return
-        else:
-            metadata[r'language'] = language
-        if ((not action) and (len(lyrics) > 4)): return
-        artist = metadata.get(r'artist', None)
-        if (not artist):
-            log.debug(r'{}: cannot fetch lyrics without artist information'.format(PLUGIN_NAME))
-            return
-        title = metadata.get(r'title', None)
-        if (not title):
-            log.debug(r'{}: cannot fetch lyrics without track title information'.format(PLUGIN_NAME))
-            return
-        log.debug(r'{}: fetching lyrics for "{}" by '.format(PLUGIN_NAME, title, artist))
-        lyrics = self.fetchLyrics(artist, title, language)
-        if (not lyrics): return
-        log.debug('{}: lyrics found for for "{}" by {}'.format(PLUGIN_NAME, title, artist))
-        if (not metadata.get(r'lyrics', None)): metadata[r'lyrics'] = lyrics
+        if ((language != r'zxx') and (action or ((not lyrics) and config.setting[r'autoFetch']))):
+            artist = metadata.get(r'artist', metadata.get(r'albumartist', None))
+            if (not artist):
+                artist = metadata.get(r'artistsort', metadata.get(r'albumartistsort', None))
+            title = metadata.get(r'title', metadata.get(r'_recordingtitle', metadata.get(r'work', None)))
+            fetchedLyrics = self.fetchLyrics(artist, title, language)
+            if (len(fetchedLyrics)): lyrics = fetchedLyrics
+        detectedLanguage = self._detectLanguage(lyrics)
+        if (re.match(r'^\Winstrumental\W$', lyrics, flags=re.IGNORECASE)):
+            metadata[r'language'] = r'zxx'
+        elif ((language == r'und') or (detectedLanguage[1] > 0.9)):
+            if (detectedLanguage[0] != r'und'): metadata[r'language'] = detectedLanguage[0]
+        metadata[r'lyrics'] = lyrics
 
     def callback( self, objs ):
         for obj in objs:
@@ -329,10 +357,11 @@ if (runningAsPlugin):
 
         NAME = r'omnilyrics'
         TITLE = PLUGIN_NAME
-        PARENT = r'plugins'
+        PARENT = r'tags' # r'plugins' ?
 
         options = [TextOption(r'setting', r'gcsAPIKey', r' '),
-                   TextOption(r'setting', r'gcsEngineID', r' ')]
+                   TextOption(r'setting', r'gcsEngineID', r' '),
+                   BoolOption(r'setting', r'autoFetch', False)]
 
         def __init__( self, parent=None ):
             super().__init__(parent)
@@ -361,20 +390,31 @@ if (runningAsPlugin):
             self.box.addWidget(self.idInput)
             self.spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
             self.box.addItem(self.spacer)
+            self.autoFetch = QtWidgets.QCheckBox(self)
+            self.autoFetch.setCheckable(True)
+            self.autoFetch.setChecked(False)
+            self.autoFetch.setText(r'Fetch lyrics from the web automatically after scanning')
+            self.box.addWidget(self.autoFetch)
+            self.spacer2 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+            self.box.addItem(self.spacer2)
+            self.spacer3 = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+            self.box.addItem(self.spacer3)
 
         def load( self ):
             self.apiKeyInput.setText(config.setting[r'gcsAPIKey'])
             self.idInput.setText(config.setting[r'gcsEngineID'])
+            self.autoFetch.setChecked(config.setting[r'autoFetch'])
 
         def save( self ):
             config.setting[r'gcsAPIKey'] = self.apiKeyInput.text()
             config.setting[r'gcsEngineID'] = self.idInput.text()
+            config.setting[r'autoFetch'] = self.autoFetch.isChecked()
 
 
 
     register_file_action(OmniLyrics())
     # register_track_action(OmniLyrics())
-    # register_track_metadata_processor(OmniLyrics().process)
+    register_track_metadata_processor(OmniLyrics().process)
     register_options_page(OmniLyricsOptionsPage)
 
 
