@@ -35,7 +35,7 @@ PLUGIN_DESCRIPTION = 'Fetch lyrics from multiple sites via Google Custom Search 
                      '<a href="https://cse.google.com/cse/create/new">cse.google.com</a> ' \
                      'and get your own Google Custom Search API key at ' \
                      '<a href="https://developers.google.com/custom-search/v1/overview#api_key">developers.google.com</a>.'
-PLUGIN_VERSION = '0.2'
+PLUGIN_VERSION = '0.3'
 PLUGIN_API_VERSIONS = ['2.0', '2.1', '2.2', '2.3', '2.4', '2.5', '2.6']
 PLUGIN_LICENSE = 'GPLv3'
 PLUGIN_LICENSE_URL = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
@@ -45,8 +45,9 @@ if (not (__name__ == "__main__")):
     from PyQt5 import QtWidgets
     from picard import config, log
     from picard.config import TextOption, BoolOption
-    from picard.file import File
+    from picard.file import File, register_file_post_addition_to_track_processor
     from picard.metadata import register_track_metadata_processor
+    from picard.plugin import PluginPriority
     from picard.track import Track
     from picard.ui.itemviews import BaseAction, register_file_action, register_track_action
     from picard.ui.options import OptionsPage, register_options_page
@@ -353,6 +354,9 @@ class OmniLyrics( BaseAction ):
             if (detectedLanguage[0] != r'und'): metadata[r'language'] = detectedLanguage[0]
         metadata[r'lyrics'] = self.lyricsMadeTidy(lyrics)
 
+    def processFile( self, track, file ):
+        self.process(None, file.metadata, track, None, False)
+
     def callback( self, objs ):
         for obj in objs:
             if isinstance(obj, Track):
@@ -424,8 +428,9 @@ if (runningAsPlugin):
 
 
     register_file_action(OmniLyrics())
+    register_file_post_addition_to_track_processor(OmniLyrics().processFile)
     # register_track_action(OmniLyrics())
-    register_track_metadata_processor(OmniLyrics().process)
+    # register_track_metadata_processor(OmniLyrics().process, priority=PluginPriority.LOW)
     register_options_page(OmniLyricsOptionsPage)
 
 

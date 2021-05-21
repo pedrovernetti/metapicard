@@ -24,7 +24,7 @@ import re
 PLUGIN_NAME = 'SuperComment'
 PLUGIN_AUTHOR = 'Pedro Vernetti G.'
 PLUGIN_DESCRIPTION = 'Merge most/all release-specific information into the comment tag.'
-PLUGIN_VERSION = '0.1'
+PLUGIN_VERSION = '0.2'
 PLUGIN_API_VERSIONS = ['2.0', '2.1', '2.2', '2.3', '2.4', '2.5', '2.6']
 PLUGIN_LICENSE = 'GPLv3'
 PLUGIN_LICENSE_URL = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
@@ -32,7 +32,7 @@ PLUGIN_LICENSE_URL = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
 from PyQt5 import QtWidgets
 from picard.config import BoolOption
 from picard import config, log
-from picard.file import File
+from picard.file import File, register_file_post_addition_to_track_processor
 from picard.metadata import register_track_metadata_processor
 from picard.track import Track
 from picard.ui.itemviews import BaseAction, register_file_action, register_track_action
@@ -227,13 +227,15 @@ class SuperComment( BaseAction ):
         if (other.match(what)): return other.sub(self._formatOther, what)
         return r''
 
-    def _appendReleaseTypeToAlbum( self, metadata, kind, subkind ):
+    def _appendReleaseTypeToAlbum( self, metadata, status, kind, subkind ):
         album = metadata.get(r'album', metadata.get(r'~releasegroup', r''))
-        album = re.sub(r'\W*(demo|single|mixtape|ep)\W*$', r'', album, flags=re.IGNORECASE)
+        album = re.sub(r'\W*(demo|single|mixtape|ep|bootleg)\W*$', r'', album, flags=re.IGNORECASE)
         album = re.sub(r'\s+', r' ', album).strip()
         normalizedAlbum = r' ' + album.casefold() + r' '
         if (not album): return
-        if (((subkind == r'demo') or (kind == r'demo')) and (not re.match(r'\Wdemo\W* ', normalizedAlbum))):
+        if ((status == r'bootleg') and (not re.match(r'\Wbootleg\W* ', normalizedAlbum))):
+            album += r' (bootleg)'
+        elif (((subkind == r'demo') or (kind == r'demo')) and (not re.match(r'\Wdemo\W* ', normalizedAlbum))):
             album += r' (demo)'
         elif ((kind == r'single') and (not re.match(r'\Wsingle\W*$', normalizedAlbum))):
             album += r' (single)'
@@ -262,7 +264,7 @@ class SuperComment( BaseAction ):
         elif (r'spoken' in subkind): subkind = r'spokenword'
         metadata.pop(r'compilation', None)
         if (config.setting[r'appendReleaseTypeToAlbum']):
-            self._appendReleaseTypeToAlbum(metadata, kind, subkind)
+            self._appendReleaseTypeToAlbum(metadata, status, kind, subkind)
         if ((subkind == r'demo') or (kind == r'demo')):
             what += r' demo'
         else:
@@ -326,6 +328,9 @@ class SuperComment( BaseAction ):
         metadata.pop(r'Comment:', None)
         metadata[r'comment'] = re.sub(r'[,;]$', r'', re.sub(r'\s+', r' ', comment.strip()))
 
+    def processFile( self, track, file ):
+        self.process(None, file.metadata, track, None)
+
     def callback( self, objs ):
         for obj in objs:
             if isinstance(obj, Track):
@@ -371,6 +376,7 @@ class SuperCommentOptionsPage( OptionsPage ):
 
 
 register_file_action(SuperComment())
+register_file_post_addition_to_track_processor(SuperComment().processFile)
 # register_track_action(SuperComment())
-register_track_metadata_processor(SuperComment().process)
+# register_track_metadata_processor(SuperComment().process)
 register_options_page(SuperCommentOptionsPage)
