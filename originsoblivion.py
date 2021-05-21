@@ -32,6 +32,7 @@ PLUGIN_LICENSE_URL = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
 from picard import log
 from picard.file import File, register_file_post_addition_to_track_processor, register_file_post_load_processor
 from picard.metadata import register_track_metadata_processor
+from picard.plugin import PluginPriority
 from picard.track import Track
 from picard.ui.itemviews import BaseAction, register_file_action, register_track_action
 
@@ -41,23 +42,25 @@ class OriginsOblivion( BaseAction ):
 
     NAME = "Purge Encoding/Software-Related Tags"
 
+    _targets = { r'encodersettings', r'encodedby', r'ripped', r'rippedby', r'source',
+                 r'software', r'encoder', r'encoding_params', r'encodingtime', r'itunsmpb',
+                 r'compatible_brands', r'major_brand', r'minor_version', r'tbpm', r'tlen',
+                 r'tsrc', r'itunpgap', r'itunnorm', }
+
     def __init__( self ):
         super().__init__()
 
     def process( self, album, metadata, track, release ):
-        metadata.pop(r'encodersettings', None)
-        metadata.pop(r'encodedby', None)
-        metadata.pop(r'encoding params', None)
-        metadata.pop(r'compatible_brands', None)
-        metadata.pop(r'ENCODINGTIME', None)
-        metadata.pop(r'major_brand', None)
-        metadata.pop(r'minor_version', None)
-        metadata.pop(r'software', None)
-        metadata.pop(r'source', None)
-        metadata.pop(r'itunsmpb', None)
-        metadata.pop(r'tbpm', None)
-        metadata.pop(r'tlen', None)
-        metadata.pop(r'tsrc', None)
+        currentTargets = []
+        for key in metadata:
+            normkey = re.sub(r'[^\w_]', r'', re.sub(r'[\s_-]+', r'_', key))
+            normkey = normkey.casefold()
+            if ((normkey in self._targets) or (re.match(r'^itunes', normkey))):
+                currentTargets += [key]
+            elif (re.match(r'^comment', normkey)):
+                if (re.match(r'^[ 0-9A-F]*$', metadata[key])):
+                    currentTargets += [key]
+        for tagName in currentTargets: metadata.pop(tagName, None)
 
     def processFile( self, track, file ):
         self.process(None, file.metadata, track, None)
@@ -75,7 +78,7 @@ class OriginsOblivion( BaseAction ):
 
 
 register_file_action(OriginsOblivion())
-register_file_post_addition_to_track_processor(OriginsOblivion().processFile)
-register_file_post_load_processor(OriginsOblivion().processFileOnLoad)
+register_file_post_addition_to_track_processor(OriginsOblivion().processFile, priority=PluginPriority.LOW)
+register_file_post_load_processor(OriginsOblivion().processFileOnLoad, priority=PluginPriority.HIGH)
 # register_track_action(OriginsOblivion())
 # register_track_metadata_processor(OriginsOblivion().process)
