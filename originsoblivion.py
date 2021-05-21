@@ -37,9 +37,9 @@ from picard.ui.itemviews import BaseAction, register_file_action, register_track
 
 
 
-class SuperComment( BaseAction ):
+class OriginsOblivion( BaseAction ):
 
-    NAME = "Purge Encoding-Related Tags"
+    NAME = "Purge Encoding/Software-Related Tags"
 
     def __init__( self ):
         super().__init__()
@@ -74,8 +74,8 @@ class SuperComment( BaseAction ):
 
 
 
-register_file_action(SuperComment())
-register_file_post_addition_to_track_processor(SuperComment().processFile)
-register_file_post_load_processor(SuperComment().processFileOnLoad)
-# register_track_action(SuperComment())
-# register_track_metadata_processor(SuperComment().process)
+register_file_action(OriginsOblivion())
+register_file_post_addition_to_track_processor(OriginsOblivion().processFile)
+register_file_post_load_processor(OriginsOblivion().processFileOnLoad)
+# register_track_action(OriginsOblivion())
+# register_track_metadata_processor(OriginsOblivion().process)
