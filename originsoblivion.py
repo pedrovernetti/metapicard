@@ -79,6 +79,6 @@ class OriginsOblivion( BaseAction ):
 
 register_file_action(OriginsOblivion())
 register_file_post_addition_to_track_processor(OriginsOblivion().processFile, priority=PluginPriority.LOW)
-register_file_post_load_processor(OriginsOblivion().processFileOnLoad, priority=PluginPriority.HIGH)
+register_file_post_load_processor(OriginsOblivion().processFileOnLoad)
 # register_track_action(OriginsOblivion())
 # register_track_metadata_processor(OriginsOblivion().process)
