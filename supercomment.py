@@ -247,8 +247,30 @@ class SuperComment( BaseAction ):
             return
         metadata[r'album'] = album
 
-    def _what( self, metadata ):
-        what = self._format(metadata.get(r'media', r'').casefold().strip())
+    def _generateAlbumFormatTag( self, album ):
+        albumFormat = {}
+        lastDiscNumber = 0
+        for track in album.tracks:
+            if (int(track.metadata.get(r'discnumber', r'1')) > lastDiscNumber):
+                what = self._format(track.metadata.get(r'media', r'').casefold().strip())
+                lastDiscNumber += 1
+                if (len(what)):
+                    if (what not in albumFormat): albumFormat[what] = 1
+                    else: albumFormat[what] += 1
+        if (not albumFormat): return r''
+        finalFormatTag = r''
+        for item in albumFormat.items():
+            if (item[1] == 1): finalFormatTag += (item[0] + r' + ')
+            else: finalFormatTag += (item[0] + r' x' + str(item[1]) + r' + ')
+        return finalFormatTag[:-3]
+
+    def _what( self, metadata, album ):
+        if (int(metadata.get(r'totaldiscs', r'0')) != 1):
+            if (r'~supercomment_format' not in album.metadata):
+                album.metadata[r'~supercomment_format'] = self._generateAlbumFormatTag(album)
+            what = album.metadata[r'~supercomment_format']
+        else:
+            what = self._format(metadata.get(r'media', r'').casefold().strip())
         metadata.pop(r'media', None)
         status = metadata.get(r'releasestatus', r'').casefold()
         metadata.pop(r'releasestatus', None)
@@ -302,7 +324,7 @@ class SuperComment( BaseAction ):
 
     def process( self, album, metadata, track, release ):
         comment = self._company(metadata)
-        comment += self._what(metadata)
+        comment += self._what(metadata, track.album)
         comment += self._whereAndWhen(metadata)
         metadata.pop(r'script', None)
         metadata.pop(r'license', None)
@@ -333,9 +355,9 @@ class SuperComment( BaseAction ):
 
     def callback( self, objs ):
         for obj in objs:
-            if isinstance(obj, Track):
+            if (isinstance(obj, Track)):
                 for f in obj.linked_files: self.process(None, f.metadata, None, None)
-            elif isinstance(obj, File):
+            elif (isinstance(obj, File)):
                 self.process(None, obj.metadata, None, None)
 
 
