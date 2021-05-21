@@ -330,6 +330,7 @@ class OmniLyrics( BaseAction ):
             metadata[r'language'] = language
             if (language == r'zxx'):
                 metadata[r'lyrics'] = r'[instrumental]'
+                metadata.pop(r'lyricist', None)
                 return
         lyrics = metadata.get(r'lyrics', r'')
         nonstandardLyricsTags = []
@@ -348,6 +349,7 @@ class OmniLyrics( BaseAction ):
         if (re.match(r'^\Winstrumental\W$', lyrics, flags=re.IGNORECASE)):
             metadata[r'lyrics'] = r'[instrumental]'
             metadata[r'language'] = r'zxx'
+            metadata.pop(r'lyricist', None)
             return
         detectedLanguage = self._detectLanguage(lyrics)
         if ((language == r'und') or (detectedLanguage[1] > 0.9)):
@@ -359,10 +361,10 @@ class OmniLyrics( BaseAction ):
 
     def callback( self, objs ):
         for obj in objs:
-            if isinstance(obj, Track):
-                for f in obj.linked_files: self.process(None, f.metadata, None, None, True)
-            elif isinstance(obj, File):
-                self.process(None, obj.metadata, None, None, True)
+            if (isinstance(obj, Track)):
+                for f in obj.linked_files: self.process(None, f.metadata, obj, None)
+            elif (isinstance(obj, File)):
+                self.process(None, obj.metadata, None, None)
 
 
 
