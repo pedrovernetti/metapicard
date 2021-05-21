@@ -119,7 +119,7 @@ class SuperComment( BaseAction ):
                       r'XU': r'?', r'UY': r'Uruguay', r'UZ': r'Uzbekistan', r'VU': r'Vanuatu',
                       r'VA': r'Vatican', r'VE': r'Venezuela', r'VN': r'Vietnam',
                       r'VG': r'British Virgin Islands', r'VI': r'USA Virgin Islands',
-                      r'WF': r'Wallis and Futuna', r'EH': r'Western Sahara', r'XW': r'Worldwide',
+                      r'WF': r'Wallis and Futuna', r'EH': r'Western Sahara', r'XW': r'worldwide',
                       r'YE': r'Yemen', r'YU': r'Yugoslavia', r'ZM': r'Zambia', r'ZW': r'Zimbabwe', }
 
     def __init__( self ):
@@ -339,7 +339,7 @@ class SuperCommentOptionsPage( OptionsPage ):
 
     NAME = PLUGIN_NAME.casefold()
     TITLE = PLUGIN_NAME
-    PARENT = r'tags'
+    PARENT = r'tags' # r'plugins' ?
 
     options = [BoolOption(r'setting', r'appendReleaseTypeToAlbum', True),
                BoolOption(r'setting', r'includeBarcode', True)]
