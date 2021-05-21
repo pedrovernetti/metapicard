@@ -349,7 +349,7 @@ class OmniLyrics( BaseAction ):
             metadata[r'language'] = r'zxx'
             return
         detectedLanguage = self._detectLanguage(lyrics)
-        elif ((language == r'und') or (detectedLanguage[1] > 0.9)):
+        if ((language == r'und') or (detectedLanguage[1] > 0.9)):
             if (detectedLanguage[0] != r'und'): metadata[r'language'] = detectedLanguage[0]
         metadata[r'lyrics'] = self.lyricsMadeTidy(lyrics)
 
