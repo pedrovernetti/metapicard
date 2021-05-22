@@ -46,14 +46,17 @@ class OriginsOblivion( BaseAction ):
     NAME = "Purge Encoding/Software-Specific Tags"
 
     _defaultTargets = { r'encodersettings', r'encodedby', r'ripped', r'rippedby', r'source',
-                        r'software', r'encoder', r'encoding_params', r'compatible_brands',
-                        r'major_brand', r'minor_version', r'tbpm', r'tlen', r'musicbrainz_trmid',
-                        r'originalfilename', r'encodingtime', r'length', }
+                        r'software', r'encoder', r'encodingparams', r'compatiblebrands',
+                        r'majorbrand', r'minorversion', r'tbpm', r'tlen', r'musicbrainztrmid',
+                        r'originalfilename', r'encodingtime', r'length', r'tsse', r'ienc',
+                        r'generatedby', r'too', r'tenc', r'encoder', r'encodingparameters',
+                        r'encoderparams', r'encoderparameters', r'codec', r'codecparams',
+                        r'codecparameters', r'codecsettings', r'encodingsettings', }
 
-    _mbidTargets =    { r'musicbrainz_workid', r'musicbrainz_trmid', r'musicbrainz_releasegroupid',
+    _mbidTargets =    { r'musicbrainz_workid', r'musicbrainz_discid', r'musicbrainz_releasegroupid',
                         r'musicbrainz_albumartistid', r'musicbrainz_recordingid',
                         r'musicbrainz_originalalbumid', r'musicbrainz_originalartistid',
-                        r'musicbrainz_discid', r'musicbrainz_artistid', }
+                        r'musicbrainz_artistid', }
 
     _iTunesTargets =  { r'gapless', r'itunsmpb', r'itunpgap', r'itunnorm', }
 
@@ -76,6 +79,7 @@ class OriginsOblivion( BaseAction ):
             if (normkey in self._defaultTargets):
                 toBeDeleted += [key]
             else:
+                normkey = re.sub(r'[_~]', r'', normkey)
                 if ((config.setting[r'purgeiTunes'] and (normkey in self._iTunesTargets)) or
                     (config.setting[r'purgeMusicIP'] and (r'musicip' in normkey)) or
                     (config.setting[r'purgeLastFM'] and ((r'lastfm' in normkey) or (normkey == r'grouping'))) or

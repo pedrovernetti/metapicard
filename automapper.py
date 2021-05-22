@@ -59,7 +59,7 @@ class AutoMapper():
                       r'conductor', r'composersort', r'composer', r'compilation', r'catalognumber',
                       r'bpm', r'barcode', r'asin', r'artists', r'artistsort', r'artist', r'arranger',
                       r'albumsort', r'albumartistsort', r'albumartist', r'album', r'acoustid_id',
-                      r'acoustid_fingerprint', }
+                      r'acoustid_fingerprint', r'lyrics', }
 
     _mapping = { r'iwri': r'writer', r'wrk': r'work', r'woar': r'website', r'url': r'website',
                  r'authorurl': r'website', r'weblink': r'website', r'homepage': r'website',
