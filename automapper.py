@@ -191,7 +191,7 @@ class AutoMapper():
         toBeCreated = {}
         for key in metadata:
             if (key in self._standardKeys): continue
-            normkey = re.sub(r'[^\w_]', r'', re.sub(r'[\s:/-]+', r'_', key.casefold()))
+            normkey = re.sub(r'[^\w_]', r'', re.sub(r'[\s:/_-]+', r'_', key.casefold()))
             normkey = re.sub(r'^\W*(wm|txxx|((com\W*)?apple\W*)?itunes|lastfm)\W*', r'', normkey)
             if (normkey in self._standardKeys):
                 toBeDeleted += [key]
