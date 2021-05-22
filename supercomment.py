@@ -361,10 +361,10 @@ class SuperComment( BaseAction ):
             barcode = metadata.get(r'barcode', r'')
             if (len(barcode)): comment += (r' barcode: ' + re.sub(r'[^0-9]', r'', barcode) + r',')
         metadata.pop(r'barcode', None)
-        if (config.setting[r'includeISRC']):
-            isrc = metadata.get(r'isrc', r'')
-            if (len(isrc)): comment += (r' ISRC: ' + re.sub(r'[^0-9]', r'', isrc) + r',')
-        metadata.pop(r'isrc', None)
+        # if (config.setting[r'includeISRC']):
+            # isrc = metadata.get(r'isrc', r'')
+            # if (len(isrc)): comment += (r' ISRC: ' + re.sub(r'[^0-9]', r'', isrc) + r',')
+        # metadata.pop(r'isrc', None)
         if (config.setting[r'includeASIN']):
             asin = metadata.get(r'asin', r'').upper()
             if (len(asin)): comment += (r' ASIN: ' + re.sub(r'[^0-9A-Z]', r'', asin) + r',')
@@ -403,7 +403,7 @@ class SuperCommentOptionsPage( OptionsPage ):
 
     options = [ BoolOption(r'setting', r'appendReleaseTypeToAlbum', True),
                 BoolOption(r'setting', r'includeBarcode', True),
-                BoolOption(r'setting', r'includeISRC', False),
+                # BoolOption(r'setting', r'includeISRC', False),
                 BoolOption(r'setting', r'includeASIN', False),
                 BoolOption(r'setting', r'removeMBIDs', True) ]
 
@@ -420,11 +420,11 @@ class SuperCommentOptionsPage( OptionsPage ):
         self.includeBarcode.setChecked(True)
         self.includeBarcode.setText(r'Include barcode into the generated comment (when available)')
         self.box.addWidget(self.includeBarcode)
-        self.includeISRC = QtWidgets.QCheckBox(self)
-        self.includeISRC.setCheckable(True)
-        self.includeISRC.setChecked(False)
-        self.includeISRC.setText(r'Include ISRC into the generated comment (when available)')
-        self.box.addWidget(self.includeISRC)
+        # self.includeISRC = QtWidgets.QCheckBox(self)
+        # self.includeISRC.setCheckable(True)
+        # self.includeISRC.setChecked(False)
+        # self.includeISRC.setText(r'Include ISRC into the generated comment (when available)')
+        # self.box.addWidget(self.includeISRC)
         self.includeASIN = QtWidgets.QCheckBox(self)
         self.includeASIN.setCheckable(True)
         self.includeASIN.setChecked(False)
@@ -433,7 +433,7 @@ class SuperCommentOptionsPage( OptionsPage ):
         self.removeMBIDs = QtWidgets.QCheckBox(self)
         self.removeMBIDs.setCheckable(True)
         self.removeMBIDs.setChecked(True)
-        self.removeMBIDs.setText(r'Remove related MBIDs (not included in the generated comment)')
+        self.removeMBIDs.setText(r'Remove related MBIDs (not included in the generated comment in either way)')
         self.box.addWidget(self.removeMBIDs)
         self.spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.box.addItem(self.spacer)
@@ -441,14 +441,14 @@ class SuperCommentOptionsPage( OptionsPage ):
     def load( self ):
         self.appendReleaseTypeToAlbum.setChecked(config.setting[r'appendReleaseTypeToAlbum'])
         self.includeBarcode.setChecked(config.setting[r'includeBarcode'])
-        self.includeISRC.setChecked(config.setting[r'includeISRC'])
+        # self.includeISRC.setChecked(config.setting[r'includeISRC'])
         self.includeASIN.setChecked(config.setting[r'includeASIN'])
         self.removeMBIDs.setChecked(config.setting[r'removeMBIDs'])
 
     def save( self ):
         config.setting[r'appendReleaseTypeToAlbum'] = self.appendReleaseTypeToAlbum.isChecked()
         config.setting[r'includeBarcode'] = self.includeBarcode.isChecked()
-        config.setting[r'includeISRC'] = self.includeISRC.isChecked()
+        # config.setting[r'includeISRC'] = self.includeISRC.isChecked()
         config.setting[r'includeASIN'] = self.includeASIN.isChecked()
         config.setting[r'removeMBIDs'] = self.removeMBIDs.isChecked()
 
