@@ -52,7 +52,7 @@ class OriginsOblivion( BaseAction ):
                         r'generatedby', r'too', r'tenc', r'encoder', r'encodingparameters',
                         r'encoderparams', r'encoderparameters', r'codec', r'codecparams', r'tdly',
                         r'codecparameters', r'codecsettings', r'encodingsettings', r'tdtg', r'tden',
-                        r'priv', r'settings', }
+                        r'priv', r'settings', r'itunnorm', }
 
     _mbidTargets =    { r'musicbrainz_workid', r'musicbrainz_discid', r'musicbrainz_releasegroupid',
                         r'musicbrainz_albumartistid', r'musicbrainz_recordingid',
