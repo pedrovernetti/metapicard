@@ -151,7 +151,14 @@ class AutoMapper():
                  r'day': r'date', r'releaseday': r'date', r'releasetime': r'date',
                  r'datetime': r'date', r'icrd': 'date', r'tdrc': r'date', r'tyer': r'date',
                  r'musicmagicfingerprint': r'musicip_fingerprint', r'art': r'artist',
-                 r'musicipfingerprint': r'musicip_fingerprint', r'fingerprint': r'musicip_fingerprint', }
+                 r'musicipfingerprint': r'musicip_fingerprint', r'fingerprint': r'musicip_fingerprint',
+                 r'musicbrainzworkid': r'musicbrainz_workid', r'musicbrainztrmid': r'musicbrainz_trmid',
+                 r'musicbrainzrecordingid': r'musicbrainz_recordingid',
+                 r'musicbrainztrackid': r'musicbrainz_trackid', r'musicbrainzalbumid': r'musicbrainz_albumid',
+                 r'musicbrainzreleasegroupid': r'musicbrainz_releasegroupid',
+                 r'musicbrainzalbumartistid': r'musicbrainz_albumartistid',
+                 r'musicbrainzoriginalartistid': r'musicbrainz_originalartistid',
+                 r'musicbrainzdiscid': r'musicbrainz_discid', r'musicbrainzartistid': r'musicbrainz_artistid', }
 
     _splitfulMapping = { r'trkn':       (r'tracknumber', r'totaltracks'),
                          r'trck':       (r'tracknumber', r'totaltracks'),
