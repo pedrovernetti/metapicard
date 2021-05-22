@@ -356,25 +356,28 @@ class SuperComment( BaseAction ):
         comment = self._company(metadata)
         comment += self._what(metadata, (track.album if track else None))
         comment += self._whereAndWhen(metadata)
-        metadata.pop(r'script', None)
-        metadata.pop(r'license', None)
-        metadata.pop(r'copyright', None)
+        metadata.pop(r'script', None) # release-related, since it is about the tracklist's script
         if (config.setting[r'includeBarcode']):
             barcode = metadata.get(r'barcode', r'')
             if (len(barcode)): comment += (r' barcode: ' + re.sub(r'[^0-9]', r'', barcode) + r',')
         metadata.pop(r'barcode', None)
-        # isrc = metadata.get(r'isrc', r'')
-        # if (len(isrc)): comment += (r' ISRC: ' + re.sub(r'[^0-9]', r'', isrc) + r',')
+        if (config.setting[r'includeISRC']):
+            isrc = metadata.get(r'isrc', r'')
+            if (len(isrc)): comment += (r' ISRC: ' + re.sub(r'[^0-9]', r'', isrc) + r',')
         metadata.pop(r'isrc', None)
+        if (config.setting[r'includeASIN']):
+            asin = metadata.get(r'asin', r'').upper()
+            if (len(asin)): comment += (r' ASIN: ' + re.sub(r'[^0-9A-Z]', r'', asin) + r',')
         metadata.pop(r'asin', None)
         metadata.pop(r'discid', None)
-        metadata.pop(r'musicip_puid', None)
-        metadata.pop(r'musicbrainz_albumid', None)
-        metadata.pop(r'musicbrainz_originalalbumid', None)
-        metadata.pop(r'musicbrainz_releasegroupid', None)
-        metadata.pop(r'musicbrainz_recordingid', None)
-        metadata.pop(r'musicbrainz_albumartistid', None)
-        metadata.pop(r'musicbrainz_discid', None)
+        if (config.setting[r'removeMBIDs']):
+            metadata.pop(r'musicbrainz_albumid', None)
+            metadata.pop(r'musicbrainz_discid', None)
+            metadata.pop(r'musicbrainz_originalalbumid', None)
+            metadata.pop(r'musicbrainz_releasegroupid', None)
+            metadata.pop(r'musicbrainz_recordingid', None)
+            metadata.pop(r'musicbrainz_albumartistid', None)
+            metadata.pop(r'musicbrainz_discid', None)
         metadata.pop(r'comment:', None)
         metadata.pop(r'Comment', None)
         metadata.pop(r'Comment:', None)
@@ -398,8 +401,11 @@ class SuperCommentOptionsPage( OptionsPage ):
     TITLE = PLUGIN_NAME
     PARENT = r'tags' # r'plugins' ?
 
-    options = [BoolOption(r'setting', r'appendReleaseTypeToAlbum', True),
-               BoolOption(r'setting', r'includeBarcode', True)]
+    options = [ BoolOption(r'setting', r'appendReleaseTypeToAlbum', True),
+                BoolOption(r'setting', r'includeBarcode', True),
+                BoolOption(r'setting', r'includeISRC', False),
+                BoolOption(r'setting', r'includeASIN', False),
+                BoolOption(r'setting', r'removeMBIDs', True) ]
 
     def __init__( self, parent=None ):
         super().__init__(parent)
@@ -407,23 +413,44 @@ class SuperCommentOptionsPage( OptionsPage ):
         self.appendReleaseTypeToAlbum = QtWidgets.QCheckBox(self)
         self.appendReleaseTypeToAlbum.setCheckable(True)
         self.appendReleaseTypeToAlbum.setChecked(True)
-        self.appendReleaseTypeToAlbum.setText(r'Add relevant release type info. to album title before moving it to comment')
+        self.appendReleaseTypeToAlbum.setText(r'Append release type to album title before moving it to comment (when relevant)')
         self.box.addWidget(self.appendReleaseTypeToAlbum)
         self.includeBarcode = QtWidgets.QCheckBox(self)
         self.includeBarcode.setCheckable(True)
         self.includeBarcode.setChecked(True)
         self.includeBarcode.setText(r'Include barcode into the generated comment (when available)')
         self.box.addWidget(self.includeBarcode)
+        self.includeISRC = QtWidgets.QCheckBox(self)
+        self.includeISRC.setCheckable(True)
+        self.includeISRC.setChecked(False)
+        self.includeISRC.setText(r'Include ISRC into the generated comment (when available)')
+        self.box.addWidget(self.includeISRC)
+        self.includeASIN = QtWidgets.QCheckBox(self)
+        self.includeASIN.setCheckable(True)
+        self.includeASIN.setChecked(False)
+        self.includeASIN.setText(r'Include ASIN into the generated comment (when available)')
+        self.box.addWidget(self.includeASIN)
+        self.removeMBIDs = QtWidgets.QCheckBox(self)
+        self.removeMBIDs.setCheckable(True)
+        self.removeMBIDs.setChecked(True)
+        self.removeMBIDs.setText(r'Remove related MBIDs (not included in the generated comment)')
+        self.box.addWidget(self.removeMBIDs)
         self.spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.box.addItem(self.spacer)
 
     def load( self ):
         self.appendReleaseTypeToAlbum.setChecked(config.setting[r'appendReleaseTypeToAlbum'])
         self.includeBarcode.setChecked(config.setting[r'includeBarcode'])
+        self.includeISRC.setChecked(config.setting[r'includeISRC'])
+        self.includeASIN.setChecked(config.setting[r'includeASIN'])
+        self.removeMBIDs.setChecked(config.setting[r'removeMBIDs'])
 
     def save( self ):
         config.setting[r'appendReleaseTypeToAlbum'] = self.appendReleaseTypeToAlbum.isChecked()
         config.setting[r'includeBarcode'] = self.includeBarcode.isChecked()
+        config.setting[r'includeISRC'] = self.includeISRC.isChecked()
+        config.setting[r'includeASIN'] = self.includeASIN.isChecked()
+        config.setting[r'removeMBIDs'] = self.removeMBIDs.isChecked()
 
 
 
