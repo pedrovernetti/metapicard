@@ -383,6 +383,9 @@ class SuperComment( BaseAction ):
             asin = metadata.get(r'asin', r'').upper()
             if (len(asin)): comment += (r' ASIN: ' + re.sub(r'[^0-9A-Z]', r'', asin) + r',')
         metadata.pop(r'asin', None)
+        if (config.setting[r'includeDiscID']):
+            discid = metadata.get(r'discid', r'').upper()
+            if (len(discid)): comment += (r' disc ID: ' + re.sub(r'\s+', r'', discid) + r',')
         metadata.pop(r'discid', None)
         if (config.setting[r'removeMBIDs']):
             metadata.pop(r'musicbrainz_albumid', None)
@@ -419,6 +422,7 @@ class SuperCommentOptionsPage( OptionsPage ):
                 BoolOption(r'setting', r'includeBarcode', True),
                 # BoolOption(r'setting', r'includeISRC', False),
                 BoolOption(r'setting', r'includeASIN', False),
+                BoolOption(r'setting', r'includeDiscID', False),
                 BoolOption(r'setting', r'removeMBIDs', True) ]
 
     def __init__( self, parent=None ):
@@ -444,6 +448,11 @@ class SuperCommentOptionsPage( OptionsPage ):
         self.includeASIN.setChecked(False)
         self.includeASIN.setText(r'Include ASIN into the generated comment (when available)')
         self.box.addWidget(self.includeASIN)
+        self.includeDiscID = QtWidgets.QCheckBox(self)
+        self.includeDiscID.setCheckable(True)
+        self.includeDiscID.setChecked(True)
+        self.includeDiscID.setText(r'Include Disc ID into the generated comment (when available)')
+        self.box.addWidget(self.includeDiscID)
         self.removeMBIDs = QtWidgets.QCheckBox(self)
         self.removeMBIDs.setCheckable(True)
         self.removeMBIDs.setChecked(True)
@@ -457,6 +466,7 @@ class SuperCommentOptionsPage( OptionsPage ):
         self.includeBarcode.setChecked(config.setting[r'includeBarcode'])
         # self.includeISRC.setChecked(config.setting[r'includeISRC'])
         self.includeASIN.setChecked(config.setting[r'includeASIN'])
+        self.includeDiscID.setChecked(config.setting[r'includeDiscID'])
         self.removeMBIDs.setChecked(config.setting[r'removeMBIDs'])
 
     def save( self ):
@@ -464,6 +474,7 @@ class SuperCommentOptionsPage( OptionsPage ):
         config.setting[r'includeBarcode'] = self.includeBarcode.isChecked()
         # config.setting[r'includeISRC'] = self.includeISRC.isChecked()
         config.setting[r'includeASIN'] = self.includeASIN.isChecked()
+        config.setting[r'includeDiscID'] = self.includeDiscID.isChecked()
         config.setting[r'removeMBIDs'] = self.removeMBIDs.isChecked()
 
 
