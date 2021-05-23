@@ -124,26 +124,36 @@ class SuperComment( BaseAction ):
                       r'WF': r'Wallis and Futuna', r'EH': r'Western Sahara', r'XW': r'worldwide',
                       r'YE': r'Yemen', r'YU': r'Yugoslavia', r'ZM': r'Zambia', r'ZW': r'Zimbabwe', }
 
+    _alternativeLabelTags = { r'label', r'labelcode', r'recordlabel', r'tpub', r'distributedby',
+                              r'company', r'recordcompany', r'organization', r'publisher',
+                              r'publishedby', r'publishingcompany', r'distributor', r'corporation', }
+
     def __init__( self ):
         super().__init__()
 
+    def _isIndependent( self, company, metadata ):
+        unknown = re.compile(r'^(unknown|undefined|notinformed|missing|na)?$')
+        independent = r'^(selfreleased?|autonomous(release)?|no(ton)?label|ind(ie|ependente?)|none|'
+        independent = re.compile(independent + r'artist|selfpublished)$')
+        normcompany = re.sub(r'\W', r'', company).casefold()
+        if (unknown.match(normcompany)): return False
+        albumartist = metadata.get(r'albumartist', metadata.get(r'~albumartists', r''))
+        normartist = re.sub(r'\W', r'', albumartist).casefold()
+        if (unknown.match(albumartist)): return False
+        if (independent.match(normcompany) or (normcompany == normartist)): return True
+        return False
+
     def _company( self, metadata ):
         company = metadata.get(r'label', metadata.get(r'company', r'')).strip()
-        if (not company): company = metadata.get(r'organization', r'').strip()
-        if (not company): company = metadata.get(r'publisher', r'?').strip()
-        metadata.pop(r'label', None)
-        metadata.pop(r'labelcode', None)
-        metadata.pop(r'company', None)
-        metadata.pop(r'organization', None)
-        metadata.pop(r'publisher', None)
-        independent = r'^\s*\[?(no(t\s*on)?\s*label|ind(ependente?|ie)|self[\s_-]*released)\]?\s*$'
-        independent = re.compile(independent)
+        labelTags = []
+        for tagName in metadata:
+            if (re.sub(r'\W', r'', tagName).casefold() in self._alternativeLabelTags):
+                if (not company): company = metadata[tagName].strip()
+                labelTags += [tagName]
+        for tagName in labelTags: metadata.pop(tagName, None)
+        if (self._isIndependent(company, metadata)): return r'independent;'
         catalogNumber = metadata.get(r'catalognumber', r'').strip()
         metadata.pop(r'catalognumber', None)
-        if (independent.match(company.casefold())): return r'independent;'
-        albumartist = metadata.get(r'albumartist', metadata.get(r'~albumartists', r''))
-        if (re.sub(r'[\s_,.-]', r'', company) == re.sub(r'[\s_,.-]', r'', albumartist)):
-            return r'independent'
         if (re.match(r'^\W*(n(one|ull)\W*)?$', catalogNumber.casefold())): catalogNumber = r''
         if (len(catalogNumber)): return (company + r' (' + catalogNumber + r');')
         else: return (company + r';')
