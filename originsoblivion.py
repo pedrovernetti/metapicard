@@ -45,14 +45,23 @@ class OriginsOblivion( BaseAction ):
 
     NAME = "Purge Encoding/Software-Specific Tags"
 
-    _defaultTargets = { r'encodersettings', r'encodedby', r'ripped', r'rippedby', r'source',
+    _defaultTargets = { r'encodersettings', r'encodedby', r'ripped', r'rippedby', r'settings',
                         r'software', r'encoder', r'encodingparams', r'compatiblebrands',
-                        r'majorbrand', r'minorversion', r'tbpm', r'tlen', r'musicbrainztrmid',
+                        r'majorbrand', r'minorversion', r'ver', r'tlen', r'musicbrainztrmid',
                         r'originalfilename', r'encodingtime', r'length', r'tsse', r'ienc',
                         r'generatedby', r'too', r'tenc', r'encoder', r'encodingparameters',
                         r'encoderparams', r'encoderparameters', r'codec', r'codecparams', r'tdly',
                         r'codecparameters', r'codecsettings', r'encodingsettings', r'tdtg', r'tden',
-                        r'priv', r'settings', r'itunnorm', }
+                        r'priv', r'itunnorm', r'tool', r'toolname', r'encodingtool', r'createdwith',
+                        r'encodedwith', r'commentitunnorm', r'cddb', r'cddb1', r'taggingtime',
+                        r'taggingdate', r'tagdate', r'rippingtool', r'ripdate', r'rippingdate',
+                        r'cdtoc', r'commentcdtoc', r'id3v2privhttpwwwcdtagcom', r'cdtag',
+                        r'privhttpwwwcdtagcom', r'httpwwwcdtagcom', r'wwwcdtagcom', r'cdtagcom',
+                        r'toolver', r'toolversion', r'encoderversion', r'codecversion', r'ripper',
+                        r'ripperversion', r'rippersoftware', r'ripperver', r'codecver', r'encoderver',
+                        r'softwareversion', r'softwarever', r'encodingtoolversion', r'enctool',
+                        r'enctoolversion', r'enctoolver', r'encodingtoolver', r'encodingsoftwarever',
+                        r'encodingsoftwareversion', }
 
     _mbidTargets =    { r'musicbrainz_workid', r'musicbrainz_discid', r'musicbrainz_releasegroupid',
                         r'musicbrainz_albumartistid', r'musicbrainz_recordingid',
@@ -60,6 +69,10 @@ class OriginsOblivion( BaseAction ):
                         r'musicbrainz_artistid', }
 
     _iTunesTargets =  { r'gapless', r'itunsmpb', r'itunpgap', r'itunnorm', }
+
+    _lastfmTargets =  { r'grouping', r'albumgrouping', r'albumgenre', }
+
+    _commentTargets = re.compile(r'^([ 0-9A-F]+|\W*(ripped|encoded).*)$', re.IGNORECASE)
 
     def __init__( self ):
         super().__init__()
@@ -74,16 +87,16 @@ class OriginsOblivion( BaseAction ):
                 (config.setting[r'purgeMusicIP'] and normkey.startswith(r'musicip')) or
                 (config.setting[r'purgeLastFM'] and re.match(r'^last\W?fm', normkey)) or
                 (config.setting[r'purgeAcoustID'] and re.match(r'^acoust\W?id', normkey)) or
-                (re.match(r'^comment', normkey) and re.match(r'^[ 0-9A-F]+$', metadata[key]))):
+                (re.match(r'^comment', normkey) and self._commentTargets.match(metadata[key]))):
                 toBeDeleted += [key]
             normkey = re.sub(r'^\W*(wm|((com\W*)?apple\W*)?itunes|lastfm)\W*', r'', normkey)
+            normkey = re.sub(r'[_~]', r'', normkey)
             if (normkey in self._defaultTargets):
                 toBeDeleted += [key]
             else:
-                normkey = re.sub(r'[_~]', r'', normkey)
                 if ((config.setting[r'purgeiTunes'] and (normkey in self._iTunesTargets)) or
                     (config.setting[r'purgeMusicIP'] and (r'musicip' in normkey)) or
-                    (config.setting[r'purgeLastFM'] and ((r'lastfm' in normkey) or (normkey == r'grouping'))) or
+                    (config.setting[r'purgeLastFM'] and ((r'lastfm' in normkey) or (normkey in self._lastfmTargets))) or
                     (config.setting[r'purgeAcoustID'] and (r'acoustid' in normkey))):
                     toBeDeleted += [key]
         for tagName in toBeDeleted: metadata.pop(tagName, None)
