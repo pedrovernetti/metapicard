@@ -109,7 +109,7 @@ class AutoMapper():
                  r'contentgroupdescription': r'grouping', r'contentgroup': r'grouping',
                  r'group': r'grouping', r'ignr': r'genre', r'commdescription': r'comment',
                  r'songgenre': r'genre', r'gen': r'genre', r'tcon': r'genre', r'category': r'genre',
-                 r'musicgenre': r'genre', r'classification': r'genre', r'pgap': r'gapless',
+                 r'musicgenre': r'genre', r'musiccategory': r'genre', r'pgap': r'gapless',
                  r'itunpgap': r'gapless', r'ieng': r'engineer', r'tiplengineer': r'engineer',
                  r'iplsengineer': r'engineer', r'recordingengineer': r'engineer',
                  r'audioengineer': r'engineer', r'soundengineer': r'engineer', r'tbpm': r'bpm',
@@ -157,10 +157,16 @@ class AutoMapper():
                  r'musicbrainztrackid': r'musicbrainz_trackid', r'musicbrainzalbumid': r'musicbrainz_albumid',
                  r'musicbrainzreleasetrackid': r'musicbrainz_trackid', r'acoustid': r'acoustid_id',
                  r'musicbrainzalbumartistid': r'musicbrainz_albumartistid', r'acoustidid': r'acoustid_id',
-                 r'musicbrainzoriginalartistid': r'musicbrainz_originalartistid',
+                 r'musicbrainzoriginalartistid': r'musicbrainz_originalartistid', r'notes': r'comment',
                  r'musicbrainzdiscid': r'musicbrainz_discid', r'musicbrainzartistid': r'musicbrainz_artistid',
-                 r'musicbrainzreleasegroupid': r'musicbrainz_releasegroupid',
-                 r'acoustidfingerprint': r'acoustid_fingerprint', }
+                 r'musicbrainzreleasegroupid': r'musicbrainz_releasegroupid', r'sourcefmt': r'media',
+                 r'acoustidfingerprint': r'acoustid_fingerprint', r'commentid3v1': r'comment',
+                 r'commentid3v1comment': r'comment', r'id3v1comment': r'comment', r'source': r'media',
+                 r'publishingcompany': r'label', r'style': r'genre', r'id3v1genre': r'genre',
+                 r'musicalstyle': r'genre', r'substyle': r'genre', r'subcategory': r'genre',
+                 r'musicstyle': r'genre', r'kind': r'genre', r'musicalscene': r'genre', r'scene': r'genre',
+                 r'musicscene': r'genre', r'vibe': r'mood', r'musicalvibe': r'mood',
+                 r'musicvibe': r'mood', r'classification': r'_rating', }
 
     _splitfulMapping = { r'trkn':       (r'tracknumber', r'totaltracks'),
                          r'trck':       (r'tracknumber', r'totaltracks'),
