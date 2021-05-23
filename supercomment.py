@@ -233,13 +233,17 @@ class SuperComment( BaseAction ):
         albumFormat = {}
         lastDiscNumber = 0
         for track in album.tracks:
-            if (int(track.metadata.get(r'discnumber', r'1')) > lastDiscNumber):
+            discnumber = max(int(track.metadata.get(r'discnumber', r'1')), 1)
+            if (discnumber > lastDiscNumber):
                 what = self._format(track.metadata.get(r'media', r'').casefold().strip())
                 lastDiscNumber += 1
-                if (len(what)):
-                    if (what not in albumFormat): albumFormat[what] = 1
-                    else: albumFormat[what] += 1
+                if (what not in albumFormat): albumFormat[what] = 1
+                else: albumFormat[what] += 1
         if (not albumFormat): return r''
+        if (albumFormat.get(r'', 0)):
+            if (len(albumFormat) < 2): return r''
+            albumFormat[r'?'] = albumFormat[r'']
+            albumFormat.pop(r'', None)
         finalFormatTag = r''
         for item in albumFormat.items():
             if (item[1] == 1): finalFormatTag += (item[0] + r' + ')
