@@ -59,7 +59,7 @@ class AutoMapper():
                       r'conductor', r'composersort', r'composer', r'compilation', r'catalognumber',
                       r'bpm', r'barcode', r'asin', r'artists', r'artistsort', r'artist', r'arranger',
                       r'albumsort', r'albumartistsort', r'albumartist', r'album', r'acoustid_id',
-                      r'acoustid_fingerprint', r'lyrics', }
+                      r'acoustid_fingerprint', r'lyrics', r'discid', }
 
     _mapping = { r'iwri': r'writer', r'wrk': r'work', r'woar': r'website', r'url': r'website',
                  r'authorurl': r'website', r'weblink': r'website', r'homepage': r'website',
@@ -225,6 +225,14 @@ class AutoMapper():
                     if (not metadata.get(standardTag, r'')): toBeCreated[standardTag] = self._list(metadata[key])
                     elif (type(metadata[standardTag]) == list): metadata[standardTag] += self._list(metadata[key])
                     else: metadata[standardTag] = [metadata[standardTag]] + self._list(metadata[key])
+
+        foundLyrics = metadata.get(r'lyrics', r'')
+        foundLyrics = [] if (not foundLyrics) else [foundLyrics]
+        for key in metadata:
+            if (re.match(r'^(.*\W)?lyrics\W.*$', key, flags=re.IGNORECASE)):
+                if (len(metadata[key])): foundLyrics += [metadata[key]]
+                toBeDeleted += [key]
+        if (foundLyrics): metadata[r'lyrics'] = sorted(foundLyrics, key=len, reverse=True)[0]
         for tagName, value in toBeCreated.items(): metadata[tagName] = value
         for tagName in toBeDeleted: metadata.pop(tagName, None)
 
