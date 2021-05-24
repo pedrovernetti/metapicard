@@ -61,18 +61,21 @@ class OriginsOblivion( BaseAction ):
                         r'ripperversion', r'rippersoftware', r'ripperver', r'codecver', r'encoderver',
                         r'softwareversion', r'softwarever', r'encodingtoolversion', r'enctool',
                         r'enctoolversion', r'enctoolver', r'encodingtoolver', r'encodingsoftwarever',
-                        r'encodingsoftwareversion', }
+                        r'encodingsoftwareversion', r'cddcids', r'cddbid', }
 
     _mbidTargets =    { r'musicbrainz_workid', r'musicbrainz_discid', r'musicbrainz_releasegroupid',
                         r'musicbrainz_albumartistid', r'musicbrainz_recordingid',
                         r'musicbrainz_originalalbumid', r'musicbrainz_originalartistid',
                         r'musicbrainz_artistid', }
 
-    _iTunesTargets =  { r'gapless', r'itunsmpb', r'itunpgap', r'itunnorm', }
+    _iTunesTargets =  { r'gapless', r'itunsmpb', r'itunpgap', r'itunnorm', r'compilation', r'cpil',
+                        r'iscompilation', r'tcmp', }
 
     _lastfmTargets =  { r'grouping', r'albumgrouping', r'albumgenre', }
 
-    _commentTargets = re.compile(r'^([ 0-9A-F]+|\W*(ripped|encoded).*)$', re.IGNORECASE)
+    _knownSoftware =  r'exactaudiocopy|easy\W*cd\W*da|eac\W*flac|audiograbber|vsdc|'
+    _knownComments =  _knownSoftware + r'visit\W|download|((https?://)?www\.[\w-]+|https?://[\w.-]+)\.[a-zA-Z]{2,3}'
+    _commentTargets = re.compile(r'^([ 0-9A-F]+|\W*(ripped|encoded|' + _knownComments + ').*)$', re.IGNORECASE)
 
     def __init__( self ):
         super().__init__()
