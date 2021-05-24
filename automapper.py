@@ -195,17 +195,18 @@ class AutoMapper():
         if (type(value) == list): return value
         else: return [value]
 
-    def _moveTagValue( self, value, to, metadata, toBeCreated ):
+    def _moveTagValue( self, value, to, metadata, toBeCreated=None ):
         value = re.sub(r'\s+', r' ', value.strip())
         if (not metadata.get(to, r'')):
-            toBeCreated[to] = self._list(value)
+            if (toBeCreated): toBeCreated[to] = self._list(value)
+            else: metadata[to] = self._list(value)
         elif (value not in metadata[to]):
             if (type(metadata[to]) == list):
                 metadata[to] += self._list(value)
             else:
                 metadata[to] = [metadata[to]] + self._list(value)
 
-    def _moveSplittableTag( self, value, to, metadata, toBeCreated ):
+    def _moveSplittableTag( self, value, to, metadata, toBeCreate=None ):
         pattern = re.compile(r'^\W*([0-9]+)(\W([0-9]+))?\W*$')
         value1 = pattern.search(value).group(1)
         value2 = pattern.search(value).group(3)
@@ -225,6 +226,8 @@ class AutoMapper():
     def process( self, album, metadata, track, release, f=None ):
         toBeDeleted = []
         toBeCreated = {}
+        toBeKept = config.setting[r'preserved_tags']
+        if (toBeKept and f): f.preservedMappedMetadata = dict()
         for key in metadata:
             if (key in self._standardKeys): continue
             normkey = re.sub(r'[^\w_]', r'', re.sub(r'[\s:/_-]+', r'_', key.casefold()))
@@ -236,7 +239,7 @@ class AutoMapper():
                 normkey = re.sub(r'[_~]', r'', normkey)
                 if (normkey in self._splitfulMapping):
                     toBeDeleted += [key]
-                    self._moveSplittableTag(metadata[key], key, self._splitfulMapping[normkey], metadata, toBeCreated)
+                    self._moveSplittableTag(metadata[key], self._splitfulMapping[normkey], metadata, toBeCreated)
                 standardTag = self._mapping.get(normkey, r'')
                 if ((not standardTag) and (normkey in self._standardKeys)): standardTag = normkey
                 if ((len(standardTag)) and (standardTag != key)):
