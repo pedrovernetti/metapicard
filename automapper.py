@@ -226,8 +226,6 @@ class AutoMapper():
     def process( self, album, metadata, track, release, f=None ):
         toBeDeleted = []
         toBeCreated = {}
-        toBeKept = config.setting[r'preserved_tags']
-        if (toBeKept and f): f.preservedMappedMetadata = dict()
         for key in metadata:
             if (key in self._standardKeys): continue
             normkey = re.sub(r'[^\w_]', r'', re.sub(r'[\s:/_-]+', r'_', key.casefold()))
