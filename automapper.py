@@ -33,7 +33,7 @@ PLUGIN_LICENSE_URL = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
 from PyQt5 import QtWidgets
 from picard.config import BoolOption
 from picard import config, log
-from picard.file import File, register_file_post_addition_to_track_processor, register_file_post_load_processor
+from picard.file import File, register_file_post_addition_to_track_processor, register_file_post_load_processor, register_file_post_save_processor
 from picard.metadata import register_track_metadata_processor
 from picard.plugin import PluginPriority
 from picard.track import Track
@@ -222,7 +222,7 @@ class AutoMapper():
                 if (len(metadata[key])): foundLyrics += [metadata[key]]
                 toBeDeleted += [key]
         if (foundLyrics):
-            lyrics = sorted(foundLyrics, key=len, reverse=True)[0]
+            lyrics = sorted(foundLyrics, key=lambda x: len(re.sub(r'\W', r'', x)), reverse=True)[0]
             if (lyrics != metadata.get(r'lyrics', r'')):
                 metadata[r'lyrics'] = lyrics
                 if (keepLyrics): toBeKept += [r'lyrics']
@@ -269,13 +269,11 @@ class AutoMapper():
     def _restorePreservedMetadata( self, file ):
         if (not config.setting[r'clear_existing_tags']): return
         if (r'preservedMappedMetadata' not in dir(file)): return
-        print(file.preservedMappedMetadata)
         keptTags = config.setting[r'preserved_tags']
         if (not keptTags): return
         for tagName in file.preservedMappedMetadata:
             if (tagName not in file.metadata):
                 file.metadata[tagName] = file.preservedMappedMetadata[tagName]
-        del file.preservedMappedMetadata
 
     def processFile( self, track, file ):
         self._restorePreservedMetadata(file)
@@ -283,6 +281,11 @@ class AutoMapper():
 
     def processFileOnLoad( self, file ):
         self.process(None, file.metadata, None, None, file)
+
+    def processFileAfterSaving( self, file ):
+        if (r'preservedMappedMetadata' in dir(file)):
+            print(r'clearing "preservedMappedMetadata"')
+            del file.preservedMappedMetadata
 
 
 
@@ -314,6 +317,7 @@ class AutoMapperOptionsPage( OptionsPage ):
 
 
 register_file_post_addition_to_track_processor(AutoMapper().processFile, priority=PluginPriority.HIGH)
-register_file_post_load_processor(AutoMapper().processFileOnLoad, priority=110)
+register_file_post_load_processor(AutoMapper().processFileOnLoad, priority=110) # 110 > HIGH
+register_file_post_save_processor(AutoMapper().processFileAfterSaving, priority=PluginPriority.HIGH)
 # register_track_metadata_processor(AutoMapper().process)
 register_options_page(AutoMapperOptionsPage)
