@@ -30,11 +30,14 @@ PLUGIN_API_VERSIONS = ['2.0', '2.1', '2.2', '2.3', '2.4', '2.5', '2.6']
 PLUGIN_LICENSE = 'GPLv3'
 PLUGIN_LICENSE_URL = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
 
-from picard import log
+from PyQt5 import QtWidgets
+from picard.config import BoolOption
+from picard import config, log
 from picard.file import File, register_file_post_addition_to_track_processor, register_file_post_load_processor
 from picard.metadata import register_track_metadata_processor
 from picard.plugin import PluginPriority
 from picard.track import Track
+from picard.ui.options import OptionsPage, register_options_page
 
 
 
@@ -165,8 +168,11 @@ class AutoMapper():
                  r'publishingcompany': r'label', r'style': r'genre', r'id3v1genre': r'genre',
                  r'musicalstyle': r'genre', r'substyle': r'genre', r'subcategory': r'genre',
                  r'musicstyle': r'genre', r'kind': r'genre', r'musicalscene': r'genre', r'scene': r'genre',
-                 r'musicscene': r'genre', r'vibe': r'mood', r'musicalvibe': r'mood',
-                 r'musicvibe': r'mood', r'classification': r'_rating', }
+                 r'musicscene': r'genre', r'vibe': r'mood', r'musicalvibe': r'mood', r'www': r'website',
+                 r'musicvibe': r'mood', r'classification': r'_rating', r'diskid': r'discid',
+                 r'origdate': r'originaldate', r'origtime': r'originaldate', r'keysignature': r'key',
+                 r'keysig': r'key', r'retaildate': r'date', r'sourceid': r'discid', r'tdat': r'date',
+                 r'ensemble': r'artist', r'name': r'title', r'catalog': r'catalognumber', }
 
     _splitfulMapping = { r'trkn':       (r'tracknumber', r'totaltracks'),
                          r'trck':       (r'tracknumber', r'totaltracks'),
@@ -189,19 +195,34 @@ class AutoMapper():
         if (type(value) == list): return value
         else: return [value]
 
+    def _moveTagValue( self, value, to, metadata, toBeCreated ):
+        value = re.sub(r'\s+', r' ', value.strip())
+        if (not metadata.get(to, r'')):
+            toBeCreated[to] = self._list(value)
+        elif (value not in metadata[to]):
+            if (type(metadata[to]) == list):
+                metadata[to] += self._list(value)
+            else:
+                metadata[to] = [metadata[to]] + self._list(value)
+
     def _moveSplittableTag( self, value, to, metadata, toBeCreated ):
         pattern = re.compile(r'^\W*([0-9]+)(\W([0-9]+))?\W*$')
-        tag1 = pattern.search(value).group(1)
-        tag2 = pattern.search(value).group(3)
-        if (not metadata.get(to[0], r'')): toBeCreated[to[0]] = self._list(metadata[key])
-        elif (type(metadata[to[0]]) == list): metadata[to[0]] += self._list(metadata[key])
-        else: metadata[to[0]] = [metadata[to[0]]] + self._list(metadata[key])
+        value1 = pattern.search(value).group(1)
+        value2 = pattern.search(value).group(3)
+        self._moveTagValue(value1, to[0], metadata, toBeCreated)
         if (not tag2): return
-        if (not metadata.get(to[1], r'')): toBeCreated[to[1]] = self._list(metadata[key])
-        elif (type(metadata[to[1]]) == list): metadata[to[1]] += self._list(metadata[key])
-        else: metadata[to[1]] = [metadata[to[1]]] + self._list(metadata[key])
+        self._moveTagValue(value2, to[1], metadata, toBeCreated)
 
-    def process( self, album, metadata, track, release ):
+    def _mapLyrics( self, metadata, toBeDeleted ):
+        foundLyrics = metadata.get(r'lyrics', r'')
+        foundLyrics = [] if (not foundLyrics) else [foundLyrics]
+        for key in metadata:
+            if (re.match(r'^(.*\W)?lyrics\W.*$', key, flags=re.IGNORECASE)):
+                if (len(metadata[key])): foundLyrics += [metadata[key]]
+                toBeDeleted += [key]
+        if (foundLyrics): metadata[r'lyrics'] = sorted(foundLyrics, key=len, reverse=True)[0]
+
+    def process( self, album, metadata, track, release, f=None ):
         toBeDeleted = []
         toBeCreated = {}
         for key in metadata:
@@ -210,40 +231,61 @@ class AutoMapper():
             normkey = re.sub(r'^\W*(wm|txxx|((com\W*)?apple\W*)?itunes|lastfm)\W*', r'', normkey)
             if (normkey in self._standardKeys):
                 toBeDeleted += [key]
-                if (not metadata.get(normkey, r'')): toBeCreated[normkey] = self._list(metadata[key])
-                elif (type(metadata[normkey]) == list): metadata[normkey] += self._list(metadata[key])
-                else: metadata[normkey] = [metadata[normkey]] + self._list(metadata[key])
+                self._moveTagValue(metadata[key], normkey, metadata, toBeCreated)
             else:
                 normkey = re.sub(r'[_~]', r'', normkey)
                 if (normkey in self._splitfulMapping):
                     toBeDeleted += [key]
-                    self._moveSplittableTag(metadata[key], self._splitfulMapping[normkey], metadata, toBeCreated)
+                    self._moveSplittableTag(metadata[key], key, self._splitfulMapping[normkey], metadata, toBeCreated)
                 standardTag = self._mapping.get(normkey, r'')
                 if ((not standardTag) and (normkey in self._standardKeys)): standardTag = normkey
                 if ((len(standardTag)) and (standardTag != key)):
                     toBeDeleted += [key]
-                    if (not metadata.get(standardTag, r'')): toBeCreated[standardTag] = self._list(metadata[key])
-                    elif (type(metadata[standardTag]) == list): metadata[standardTag] += self._list(metadata[key])
-                    else: metadata[standardTag] = [metadata[standardTag]] + self._list(metadata[key])
-
-        foundLyrics = metadata.get(r'lyrics', r'')
-        foundLyrics = [] if (not foundLyrics) else [foundLyrics]
-        for key in metadata:
-            if (re.match(r'^(.*\W)?lyrics\W.*$', key, flags=re.IGNORECASE)):
-                if (len(metadata[key])): foundLyrics += [metadata[key]]
-                toBeDeleted += [key]
-        if (foundLyrics): metadata[r'lyrics'] = sorted(foundLyrics, key=len, reverse=True)[0]
+                    self._moveTagValue(metadata[key], standardTag, metadata, toBeCreated)
+        self._mapLyrics(metadata, toBeDeleted)
         for tagName, value in toBeCreated.items(): metadata[tagName] = value
+        if (config.setting[r'purgeUnmapped']):
+            toBeDeleted = []
+            for tagName in metadata:
+                if (tagName not in self._standardKeys): toBeDeleted += [tagName]
         for tagName in toBeDeleted: metadata.pop(tagName, None)
 
     def processFile( self, track, file ):
-        self.process(None, file.metadata, track, None)
+        self.process(None, file.metadata, track, None, file)
 
     def processFileOnLoad( self, file ):
-        self.process(None, file.metadata, None, None)
+        self.process(None, file.metadata, None, None, file)
+
+
+
+class AutoMapperOptionsPage( OptionsPage ):
+
+    NAME = PLUGIN_NAME.casefold()
+    TITLE = r'Non-standard Tags Mapping'
+    PARENT = r'tags' # r'plugins' ?
+
+    options = [ BoolOption(r'setting', r'purgeUnmapped', False) ]
+
+    def __init__( self, parent=None ):
+        super().__init__(parent)
+        self.box = QtWidgets.QVBoxLayout(self)
+        self.purgeUnmapped = QtWidgets.QCheckBox(self)
+        self.purgeUnmapped.setCheckable(True)
+        self.purgeUnmapped.setChecked(False)
+        self.purgeUnmapped.setText(r'Purge non-standard tags left unmapped')
+        self.box.addWidget(self.purgeUnmapped)
+        self.spacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.box.addItem(self.spacer)
+
+    def load( self ):
+        self.purgeUnmapped.setChecked(config.setting[r'purgeUnmapped'])
+
+    def save( self ):
+        config.setting[r'purgeUnmapped'] = self.purgeUnmapped.isChecked()
 
 
 
 register_file_post_addition_to_track_processor(AutoMapper().processFile, priority=PluginPriority.HIGH)
 register_file_post_load_processor(AutoMapper().processFileOnLoad, priority=110)
 # register_track_metadata_processor(AutoMapper().process)
+register_options_page(AutoMapperOptionsPage)
