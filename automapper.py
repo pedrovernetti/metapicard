@@ -214,44 +214,71 @@ class AutoMapper():
         if (not tag2): return
         self._moveTagValue(value2, to[1], metadata, toBeCreated)
 
-    def _mapLyrics( self, metadata, toBeDeleted ):
+    def _mapLyrics( self, metadata, toBeDeleted, keepLyrics, toBeKept ):
         foundLyrics = metadata.get(r'lyrics', r'')
         foundLyrics = [] if (not foundLyrics) else [foundLyrics]
         for key in metadata:
             if (re.match(r'^(.*\W)?lyrics\W.*$', key, flags=re.IGNORECASE)):
                 if (len(metadata[key])): foundLyrics += [metadata[key]]
                 toBeDeleted += [key]
-        if (foundLyrics): metadata[r'lyrics'] = sorted(foundLyrics, key=len, reverse=True)[0]
+        if (foundLyrics):
+            lyrics = sorted(foundLyrics, key=len, reverse=True)[0]
+            if (lyrics != metadata.get(r'lyrics', r'')):
+                metadata[r'lyrics'] = lyrics
+                if (keepLyrics): toBeKept += [r'lyrics']
 
     def process( self, album, metadata, track, release, f=None ):
         toBeDeleted = []
         toBeCreated = {}
+        toBeKept = []
+        keptTags = config.setting[r'preserved_tags']
         for key in metadata:
             if (key in self._standardKeys): continue
             normkey = re.sub(r'[^\w_]', r'', re.sub(r'[\s:/_-]+', r'_', key.casefold()))
             normkey = re.sub(r'^\W*(wm|txxx|((com\W*)?apple\W*)?itunes|lastfm)\W*', r'', normkey)
             if (normkey in self._standardKeys):
                 toBeDeleted += [key]
+                if (normkey in keptTags): toBeKept += [normkey]
                 self._moveTagValue(metadata[key], normkey, metadata, toBeCreated)
             else:
                 normkey = re.sub(r'[_~]', r'', normkey)
                 if (normkey in self._splitfulMapping):
                     toBeDeleted += [key]
-                    self._moveSplittableTag(metadata[key], self._splitfulMapping[normkey], metadata, toBeCreated)
+                    partTags = self._splitfulMapping[normkey]
+                    if (partTags[1] in keptTags): toBeKept += [partTags[1]]
+                    if (partTags[1] in keptTags): toBeKept += [partTags[1]]
+                    self._moveSplittableTag(metadata[key], partTags, metadata, toBeCreated)
                 standardTag = self._mapping.get(normkey, r'')
                 if ((not standardTag) and (normkey in self._standardKeys)): standardTag = normkey
                 if ((len(standardTag)) and (standardTag != key)):
                     toBeDeleted += [key]
+                    if (standardTag in keptTags): toBeKept += [standardTag]
                     self._moveTagValue(metadata[key], standardTag, metadata, toBeCreated)
-        self._mapLyrics(metadata, toBeDeleted)
+        self._mapLyrics(metadata, toBeDeleted, (r'lyrics' in keptTags), toBeKept)
         for tagName, value in toBeCreated.items(): metadata[tagName] = value
         if (config.setting[r'purgeUnmapped']):
             toBeDeleted = []
             for tagName in metadata:
                 if (tagName not in self._standardKeys): toBeDeleted += [tagName]
+        if (keptTags and f and config.setting[r'clear_existing_tags']):
+            f.preservedMappedMetadata = dict()
+            toBeKept = list(set(toBeKept))
+            for tagName in toBeKept: f.preservedMappedMetadata[tagName] = metadata[tagName]
         for tagName in toBeDeleted: metadata.pop(tagName, None)
 
+    def _restorePreservedMetadata( self, file ):
+        if (not config.setting[r'clear_existing_tags']): return
+        if (r'preservedMappedMetadata' not in dir(file)): return
+        print(file.preservedMappedMetadata)
+        keptTags = config.setting[r'preserved_tags']
+        if (not keptTags): return
+        for tagName in file.preservedMappedMetadata:
+            if (tagName not in file.metadata):
+                file.metadata[tagName] = file.preservedMappedMetadata[tagName]
+        del file.preservedMappedMetadata
+
     def processFile( self, track, file ):
+        self._restorePreservedMetadata(file)
         self.process(None, file.metadata, track, None, file)
 
     def processFileOnLoad( self, file ):
