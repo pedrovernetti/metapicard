@@ -218,7 +218,11 @@ class SuperComment( BaseAction ):
 
     def _format( self, what ):
         if ((r'other' in what) or (not what)): return r''
-        if (r'digital' in what): return r'digital'
+        fileFormats = r'[af]lac|w(a?vpack|m[av])|pcm|ape|m(4[abpv]|p[c+34]|k[av]|atroska)|lossless\W*audio'
+        fileSources = r'spotify|deezer|itunes|bandcamp|.*download.*|torrent|soundcloud|youtube|livemotion|'
+        fileSources = r'a(pple|mazon)(\W*music)?|vimeo|torrent|tidal|napster|google\W*((play\W*)?music|play)|myspace'
+        digital = r'(files?|' + fileFormats + r'|' + fileSources + '|og[agmv](\W*vorbis)?|windows\W*media)\W.*'
+        if ((r'digital' in what) or re.match((r'^\W*(dig\W*|' + digital + ')$'), what)): return r'digital'
         what = re.sub(r'[\s_]+', r' ', re.sub(r'[\s_]*\([^)]\)', r'', what))
         vinyl = re.compile(r'(([0-9,.]+)(''|")[\s-]*)?(vinyl|shellac|flexi[\s-]*dis[ck]|floppy|laser[ -]?dis[ck])')
         if (vinyl.match(what)): return vinyl.sub(self._formatWithInches, what)
