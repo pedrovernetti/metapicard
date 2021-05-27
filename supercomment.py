@@ -155,6 +155,8 @@ class SuperComment( BaseAction ):
         catalogNumber = metadata.get(r'catalognumber', r'').strip()
         metadata.pop(r'catalognumber', None)
         if (re.match(r'^\W*(n(one|ull)\W*)?$', catalogNumber.casefold())): catalogNumber = r''
+        company = re.sub(r'\s*;\s*', r' / ', company)
+        catalogNumber = re.sub(r'\s*;\s*', r' / ', catalogNumber)
         if (len(catalogNumber)): return (company + r' (' + catalogNumber + r');')
         else: return (company + r';')
 
