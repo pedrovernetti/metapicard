@@ -387,6 +387,8 @@ class OmniLyrics( BaseAction ):
         lyrics = re.sub(r' (\n|$)', r'\1', lyrics, flags=re.MULTILINE)
         lyrics = re.sub(r'(^|\n) ', r'\1', lyrics, flags=re.MULTILINE)
         lyrics = self._expandedLyrics(lyrics)
+        lyrics = re.sub(r'(\[\w+(\s+\w+)?\])', lambda x: x.group(1).casefold(), lyrics)
+        lyrics = re.sub(r'\n.*https?://.*\n', r'\n', lyrics)
         lyrics = re.sub(r'\n\n+', r'\n\n', lyrics, flags=re.MULTILINE)
         return lyrics.strip()
 
