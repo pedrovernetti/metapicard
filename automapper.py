@@ -261,7 +261,8 @@ class AutoMapper():
             for tagName in metadata:
                 if (tagName not in self._standardKeys): toBeDeleted += [tagName]
         if (keptTags and f and config.setting[r'clear_existing_tags']):
-            f.preservedMappedMetadata = dict()
+            if (r'preservedMappedMetadata' not in dir(f)):
+                f.preservedMappedMetadata = dict()
             toBeKept = list(set(toBeKept))
             for tagName in toBeKept: f.preservedMappedMetadata[tagName] = metadata[tagName]
         for tagName in toBeDeleted: metadata.pop(tagName, None)
@@ -284,7 +285,6 @@ class AutoMapper():
 
     def processFileAfterSaving( self, file ):
         if (r'preservedMappedMetadata' in dir(file)):
-            print(r'clearing "preservedMappedMetadata"')
             del file.preservedMappedMetadata
 
 
