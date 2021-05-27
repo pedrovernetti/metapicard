@@ -14,13 +14,14 @@
 # Description: MusicBrainz Picard plugin to fetch song lyrics from the web via GCS.
 #
 # #  In order to have this plugin working (if it is currently not), install its dependencies:
-#    'beautifulsoup4', 'iso-639' and 'langdetect'
+#    'beautifulsoup4', r'unidecode, 'iso-639' and 'langdetect'
 # #  ...then place it at: ~/.config/MusicBrainz/Picard/plugins
 # =============================================================================================
 
 import re, time, requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
+import unidecode
 import iso639
 import langdetect
 
@@ -163,6 +164,41 @@ def _lyricsMINTScraper( page ):
 
 
 
+def _letrasURL( artist, title ):
+    pass
+
+def _geniusURL( artist, title ):
+    artist = unidecode.unidecode(artist[0].title() + artist[1:].casefold())
+    title = unidecode.unidecode(title.casefold())
+    artist = re.sub(r'[\s-]+', r'-', re.sub(r'[^\w\s-]+', r'', artist)).strip(r'-')
+    title = re.sub(r'[\s-]+', r'-', re.sub(r'[^\w\s-]+', r'', title)).strip(r'-')
+    return (r'https://genius.com/' + artist + r'-' + title + r'-lyrics')
+
+def _aZLyricsURL( artist, title ):
+    artist = re.sub(r'\W+', r'', unidecode.unidecode(artist.casefold()))
+    title = re.sub(r'\W+', r'', unidecode.unidecode(title.casefold()))
+    return (r'https://www.azlyrics.com/lyrics/' + artist + r'/' + title + '.html')
+
+def _lyricsModeURL( artist, title ):
+    artist = re.sub(r'[^a-z0-9\s_-]+', r'', artist.upper().casefold())
+    title = re.sub(r'[^a-z0-9\s_-]+', r'', title.upper().casefold())
+    artist = re.sub(r'[\s_-]+', r'_', artist).strip(r'_')
+    title = re.sub(r'[\s_-]+', r'_', title).strip(r'_')
+    return (r'https://www.lyricsmode.com/lyrics/' + artist[0] + r'/' + artist + r'/' + title + r'.html')
+
+def _vagalumeURL( artist, title ):
+    artist = re.sub(r'\W+', r'-', unidecode.unidecode(artist.casefold())).strip(r'-')
+    title = re.sub(r'\W+', r'-', unidecode.unidecode(title.casefold())).strip(r'-')
+    return (r'https://www.vagalume.com.br/' + artist + r'/' + title + r'.html')
+
+def _lyricsComURL( artist, title ):
+    pass
+
+def _lyricsManiaURL( artist, title ):
+    pass
+
+
+
 class OmniLyrics( BaseAction ):
 
     NAME = "Fetch Lyrics"
@@ -179,6 +215,9 @@ class OmniLyrics( BaseAction ):
                  r'lyricsted':      _lyricsTEDScraper,
                  r'lyricsoff':      _lyricsOffScraper,
                  r'lyricsmint':     _lyricsMINTScraper, }
+
+    _autoURLS = [ _letrasURL, _geniusURL, _aZLyricsURL, _lyricsModeURL,
+                  _vagalumeURL, _lyricsComURL, _lyricsManiaURL ]
 
     validGCSLanguages = { r'ar', r'bg', r'ca', r'cs', r'da', r'de', r'el',
                           r'en', r'es', r'et', r'fi', r'fr', r'hr', r'hu',
@@ -262,24 +301,15 @@ class OmniLyrics( BaseAction ):
         response = self._request(customSearchURL, params=customSearchParameters)
         return response
 
-    def _lyrics( self, resultURL ):
-        page = self._request(resultURL, headers=self.headers)
+    def _lyrics( self, lyricsURL ):
+        if (not lyricsURL): return None
+        page = self._request(lyricsURL, headers=self.headers)
         page = BeautifulSoup(page.content, r'lxml')
         for domain, scraper in self.scrapers.items():
-            if (domain in resultURL): return scraper(page)
+            if (domain in lyricsURL): return scraper(page)
         return None # no scrapper available for this search result
 
-    def fetchLyrics( self, artist, title, language ):
-        if (not artist):
-            log.debug(r'{}: cannot fetch lyrics without artist information'.format(PLUGIN_NAME))
-            return r''
-        if (not title):
-            log.debug(r'{}: cannot fetch lyrics without track title information'.format(PLUGIN_NAME))
-            return r''
-        if (not runningAsPlugin):
-            lang = iso639.languages.part3.get(language, iso639.languages.part3[r'und']).name
-            lang = language + r' (' + lang + r')'
-            print('\n TITLE:    ', title, '\n ARTIST:   ', artist, '\n LANGUAGE: ', lang, '\n')
+    def _fetchThroughGCS( self, artist, title, language ):
         query = re.sub(r'[^\w\s]', r'', (artist.strip() + r' ' + title.strip()))
         query = self._query(query, language)
         if (not query): return r''
@@ -294,6 +324,28 @@ class OmniLyrics( BaseAction ):
             except: lyrics = r''
             if (lyrics): return lyrics
         return r'' # no results
+
+    def _fetchDirectly( self, artist, title, language ):
+        urls = [generateURL(artist, title) for generateURL in self._autoURLS]
+        for url in urls:
+            lyrics = self._lyrics(url)
+            if (lyrics): return lyrics
+        return r''
+
+    def fetchLyrics( self, artist, title, language ):
+        if (not artist):
+            log.debug(r'{}: cannot fetch lyrics without artist information'.format(PLUGIN_NAME))
+            return r''
+        if (not title):
+            log.debug(r'{}: cannot fetch lyrics without track title information'.format(PLUGIN_NAME))
+            return r''
+        if (not runningAsPlugin):
+            lang = iso639.languages.part3.get(language, iso639.languages.part3[r'und']).name
+            lang = language + r' (' + lang + r')'
+            print('\n TITLE:    ', title, '\n ARTIST:   ', artist, '\n LANGUAGE: ', lang, '\n')
+        lyrics = None #self._fetchThroughGCS(artist, title, language)
+        if (not lyrics): lyrics = self._fetchDirectly(artist, title, language)
+        return lyrics
 
     def _fixedLanguage( self, language ):
         language = re.sub(r'[\s_-]+', r' ', language)
@@ -311,13 +363,31 @@ class OmniLyrics( BaseAction ):
         lang = langdetect.detect_langs(lyrics)[0]
         return (iso639.languages.part1[lang.lang[:2]].part3, lang.prob)
 
+    def _repeatedLine( self, x ):
+        line = x.group(1)
+        times = x.group(3) if (not x.group(4)) else x.group(4)
+        return ((line * int(times)) + '\n')
+
+    def _expandedLyrics( self, lyrics ):
+        lyrics = '\n' + lyrics.replace('\n\n', '\n\n\n') + '\n'
+        repeatedLines = r'(\n[^\n]+)\[\s*([Xx]\s*([1-9][0-9]*)|([1-9][0-9]*)\s*[Xx])\s*\]'
+        repeatedLines += r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*\n'
+        lyrics = re.sub(repeatedLines, self._repeatedLine, lyrics, flags=re.MULTILINE)
+        partsWithDescr = re.compile(r'\n(\[[\w\s]+\])\n(([^\n]+\n)+)\n', re.MULTILINE)
+        parts = [(part[0], part[1]) for part in partsWithDescr.findall(lyrics)]
+        for part in parts:
+            lyrics = re.sub((re.escape(part[0]) + r'\n\n'), (part[1] + r'\n'), lyrics)
+        return partsWithDescr.sub(r'\n\2\n', ('\n' + lyrics + '\n'))
+
     def lyricsMadeTidy( self, lyrics ):
-        lyrics = re.sub(r'(\r+\n|\r*\n\r+|\u0085)', r'\n', lyrics, flags=re.MULTILINE)
-        lyrics = re.sub(r'\n\n+', r'\n\n', lyrics.replace(r'\r', r'\n'), flags=re.MULTILINE)
         horizontalSpace = r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]'
         lyrics = re.sub((horizontalSpace + r'+'), r' ', lyrics)
+        lyrics = re.sub(r'(\r+\n|\r*\n\r+|\u0085)', r'\n', lyrics, flags=re.MULTILINE)
+        lyrics = lyrics.replace(r'\r', r'\n')
         lyrics = re.sub(r' (\n|$)', r'\1', lyrics, flags=re.MULTILINE)
         lyrics = re.sub(r'(^|\n) ', r'\1', lyrics, flags=re.MULTILINE)
+        lyrics = self._expandedLyrics(lyrics)
+        lyrics = re.sub(r'\n\n+', r'\n\n', lyrics, flags=re.MULTILINE)
         return lyrics.strip()
 
     def process( self, album, metadata, track, release, action=False ):
@@ -351,6 +421,7 @@ class OmniLyrics( BaseAction ):
             metadata[r'language'] = r'zxx'
             metadata.pop(r'lyricist', None)
             return
+        #if (not lyrics): lyrics = self._searchForOldLyrics(track)
         detectedLanguage = self._detectLanguage(lyrics)
         if ((language == r'und') or (detectedLanguage[1] > 0.9)):
             if (detectedLanguage[0] != r'und'): metadata[r'language'] = detectedLanguage[0]
@@ -362,9 +433,9 @@ class OmniLyrics( BaseAction ):
     def callback( self, objs ):
         for obj in objs:
             if (isinstance(obj, Track)):
-                for f in obj.linked_files: self.process(None, f.metadata, obj, None)
+                for f in obj.linked_files: self.process(None, f.metadata, obj, None, True)
             elif (isinstance(obj, File)):
-                self.process(None, obj.metadata, None, None)
+                self.process(None, obj.metadata, None, None, True)
 
 
 
@@ -372,7 +443,7 @@ if (runningAsPlugin):
 
     class OmniLyricsOptionsPage( OptionsPage ):
 
-        NAME = r'omnilyrics'
+        NAME = PLUGIN_NAME.casefold()
         TITLE = PLUGIN_NAME
         PARENT = r'tags' # r'plugins' ?
 
@@ -430,7 +501,7 @@ if (runningAsPlugin):
 
 
     register_file_action(OmniLyrics())
-    register_file_post_addition_to_track_processor(OmniLyrics().processFile)
+    register_file_post_addition_to_track_processor(OmniLyrics().processFile, priority=PluginPriority.LOW)
     # register_track_action(OmniLyrics())
     # register_track_metadata_processor(OmniLyrics().process, priority=PluginPriority.LOW)
     register_options_page(OmniLyricsOptionsPage)
