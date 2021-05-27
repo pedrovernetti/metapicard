@@ -88,8 +88,8 @@ class OriginsOblivion( BaseAction ):
             if ((config.setting[r'purgeMBIDs'] and (normkey in self._mbidTargets)) or
                 (config.setting[r'purgeiTunes'] and normkey.startswith(r'itun')) or
                 (config.setting[r'purgeMusicIP'] and normkey.startswith(r'musicip')) or
-                (config.setting[r'purgeLastFM'] and re.match(r'^last\W?fm', normkey)) or
-                (config.setting[r'purgeAcoustID'] and re.match(r'^acoust\W?id', normkey)) or
+                (config.setting[r'purgeLastFM'] and re.match(r'^\W*last\W?fm', normkey)) or
+                (config.setting[r'purgeAcoustID'] and re.match(r'^\W*acoust\W?id', normkey)) or
                 (re.match(r'^comment', normkey) and self._commentTargets.match(metadata[key]))):
                 toBeDeleted += [key]
             normkey = re.sub(r'^\W*(wm|((com\W*)?apple\W*)?itunes|lastfm)\W*', r'', normkey)
