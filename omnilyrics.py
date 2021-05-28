@@ -373,7 +373,7 @@ class OmniLyrics( BaseAction ):
         repeatedLines = r'(\n[^\n]+)\[\s*([Xx]\s*([1-9][0-9]*)|([1-9][0-9]*)\s*[Xx])\s*\]'
         repeatedLines += r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*\n'
         lyrics = re.sub(repeatedLines, self._repeatedLine, lyrics, flags=re.MULTILINE)
-        partsWithDescr = re.compile(r'\n(\[[\w\s]+\])\n(([^\n]+\n)+)\n', re.MULTILINE)
+        partsWithDescr = re.compile(r'\n(\[[\w\s,/+_-]+\])\n(([^\n]+\n)+)\n', re.MULTILINE)
         parts = [(part[0], part[1]) for part in partsWithDescr.findall(lyrics)]
         for part in parts:
             lyrics = re.sub((re.escape(part[0]) + r'\n\n'), (part[1] + r'\n'), lyrics)
@@ -386,9 +386,9 @@ class OmniLyrics( BaseAction ):
         lyrics = lyrics.replace(r'\r', r'\n')
         lyrics = re.sub(r' (\n|$)', r'\1', lyrics, flags=re.MULTILINE)
         lyrics = re.sub(r'(^|\n) ', r'\1', lyrics, flags=re.MULTILINE)
-        lyrics = self._expandedLyrics(lyrics)
         lyrics = re.sub(r'(\[\w+(\s+\w+)?\])', lambda x: x.group(1).casefold(), lyrics)
         lyrics = re.sub(r'\n.*https?://.*\n', r'\n', lyrics)
+        lyrics = self._expandedLyrics(lyrics)
         lyrics = re.sub(r'\n\n+', r'\n\n', lyrics, flags=re.MULTILINE)
         return lyrics.strip()
 
