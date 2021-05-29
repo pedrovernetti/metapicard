@@ -123,6 +123,15 @@ def _lyricsManiaScraper( page ):
     # if (not extract): return None
     #TODO: request returns blank string
 
+def _metroLyricsScraper( page ):
+    extract = page.find(r'div', {r'id': r'lyrics-body-text'})
+    if (not extract): return None
+    for br in extract.find_all(r'br'): br.replace_with('\n')
+    lyrics = r''
+    for p in extract.find_all(r'p', {r'class': r'verse'}):
+        lyrics += (p.get_text().replace('\n\n', '\n') + '\n\n')
+    return lyrics.strip()
+
 def _glamShamScraper( page ):
     extract = page.find_all(r'font', class_=r'general')[5]
     if (not extract): return None
@@ -197,6 +206,11 @@ def _lyricsComURL( artist, title ):
 def _lyricsManiaURL( artist, title ):
     pass
 
+def _metroLyricsURL( artist, title ):
+    artist = re.sub(r'\s+', r'-', re.sub(r'[^\w\s]', r'', unidecode.unidecode(artist.casefold())))
+    title = re.sub(r'\s+', r'-', re.sub(r'[^\w\s]', r'', unidecode.unidecode(title.casefold())))
+    return (r'https://www.metrolyrics.com/' + title.strip(r'-') + r'-' + artist.strip(r'-') + r'.html')
+
 
 
 class OmniLyrics( BaseAction ):
@@ -210,6 +224,7 @@ class OmniLyrics( BaseAction ):
                  r'vagalume':       _vagalumeScraper,
                  r'lyrics.com':     _lyricsComScraper,
                  r'lyricsmania':    _lyricsManiaScraper,
+                 r'metrolyrics':    _metroLyricsScraper,
                  r'glamsham':       _glamShamScraper,
                  r'lyricsbell':     _lyricsBellScraper,
                  r'lyricsted':      _lyricsTEDScraper,
@@ -217,7 +232,7 @@ class OmniLyrics( BaseAction ):
                  r'lyricsmint':     _lyricsMINTScraper, }
 
     _autoURLS = [ _letrasURL, _geniusURL, _aZLyricsURL, _lyricsModeURL,
-                  _vagalumeURL, _lyricsComURL, _lyricsManiaURL ]
+                  _vagalumeURL, _lyricsComURL, _lyricsManiaURL, _metroLyricsURL ]
 
     validGCSLanguages = { r'ar', r'bg', r'ca', r'cs', r'da', r'de', r'el',
                           r'en', r'es', r'et', r'fi', r'fr', r'hr', r'hu',
