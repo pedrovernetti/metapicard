@@ -264,7 +264,15 @@ def _letrasURL( artist, title ):
     if (not artistPage): return None
     artistPage = BeautifulSoup(artistPage.content, r'lxml')
     songs = artistPage.find_all(r'a', {r'class': r'song-name'})
-    if (not songs): return None
+    if (not songs):
+        songs = artistPage.find_all(r'div', {r'class': r'list-container'})
+        if (not songs): return None
+        songs = songs[0].find_all(r'a')
+        title = re.sub(r'\W', r'', title.casefold())
+        for song in songs:
+            if (re.sub(r'\W', r'', song.get_text().casefold()).endswith(title)):
+                return (r'https://www.letras.mus.br' + song[r'href'])
+        return None
     title = re.sub(r'\W', r'', title.casefold())
     for song in songs:
         if (re.sub(r'\W', r'', song.get_text().casefold()).endswith(title)):
