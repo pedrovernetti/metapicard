@@ -259,7 +259,8 @@ def _glamShamScraper( page, normArtist, normTitle ):
 def _letrasURL( artist, title ):
     artistURL = re.sub(r'[\s/-]+', r'-', re.sub(r'[^\w\s/-]', r'', unidecode(artist.casefold())))
     artistURL = r'https://www.letras.mus.br/' + artistURL.strip(r'-') + r'/'
-    artistPage = requests.get(artistURL, headers=OmniLyrics.headers)
+    try: artistPage = requests.get(artistURL, headers=OmniLyrics.headers)
+    except: return None
     if (not artistPage): return None
     artistPage = BeautifulSoup(artistPage.content, r'lxml')
     songs = artistPage.find_all(r'a', {r'class': r'song-name'})
