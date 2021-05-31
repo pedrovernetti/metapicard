@@ -98,7 +98,7 @@ def _geniusScraperMethod2( page ):
     return lyrics.strip()
 
 def _geniusScraper( page, normArtist, normTitle ):
-    title = page.find_all(r'h1', {r'class': r'header_with_cover_art-primary_info-title'})
+    title = page.find_all(r'h1')
     if (title):
         title = re.sub(r'[^a-z0-9]', r'', title[0].get_text().casefold())
         if (title != normTitle): return None
@@ -296,10 +296,10 @@ def _vagalumeURL( artist, title ):
     return (r'https://www.vagalume.com.br/' + artist + r'/' + title + r'.html')
 
 def _lyricsComURL( artist, title ):
-    pass
+    pass #TODO
 
 def _lyricsManiaURL( artist, title ):
-    pass
+    pass #TODO
 
 def _metroLyricsURL( artist, title ):
     artist = re.sub(r'\s+', r'-', re.sub(r'[^\w\s]', r'', unidecode(artist.casefold())))
@@ -375,23 +375,25 @@ class OmniLyrics( BaseAction ):
             self.requestFailureHistory[netloc] = (time.time(), 429)
             return None
         elif (status != 200):
-            limit = time.time() + 10
-            while time.time() <= limit:
-                try:
-                    response = requests.get(url, params=params, headers=headers)
-                    if (response.status_code == 200):
-                        status = response.status_code
-                        break
-                    if (response.status_code == 429):
-                        self.requestFailureHistory[netloc] = (time.time(), 429)
-                        return None
-                except:
-                    status = 418
-            if (status != 200):
-                self.requestFailureHistory[netloc] = (time.time(), response.status_code)
-                if (not runningAsPlugin): print(r'HTTP ' + str(response.status_code))
-                return None
-        else: return response
+            return None
+            # limit = time.time() + 10
+            # while time.time() <= limit:
+                # try:
+                    # response = requests.get(url, params=params, headers=headers)
+                    # if (response.status_code == 200):
+                        # status = response.status_code
+                        # break
+                    # if (response.status_code == 429):
+                        # self.requestFailureHistory[netloc] = (time.time(), 429)
+                        # return None
+                # except:
+                    # status = 418
+            # if (status != 200):
+                # self.requestFailureHistory[netloc] = (time.time(), response.status_code)
+                # if (not runningAsPlugin): print(r'HTTP ' + str(response.status_code))
+                # return None
+        else:
+            return response
 
     def _query( self, song, language ):
         if (runningAsPlugin):
@@ -413,7 +415,7 @@ class OmniLyrics( BaseAction ):
 
     def _lyrics( self, lyricsURL, normArtist, normTitle ):
         if (not lyricsURL): return None
-        page = requests.get(lyricsURL, headers=self.headers) #TODO switch back to self._request ?
+        page = self._request(lyricsURL, headers=self.headers)
         if (not page): return None
         page = BeautifulSoup(page.content, r'lxml')
         for domain, scraper in self.scrapers.items():
@@ -435,7 +437,10 @@ class OmniLyrics( BaseAction ):
             resultURL = queryResults[i][r'link']
             try: lyrics = self._lyrics(resultURL, normArtist, normTitle)
             except: lyrics = r''
-            if (lyrics): return lyrics
+            if (lyrics):
+                if (not runningAsPlugin):
+                    print('Lyrics for "' + title + '" fetched through GCS from ' + resultURL + '\n')
+                return lyrics
         return r'' # no results
 
     def _fetchDirectly( self, artist, title, language ):
@@ -445,9 +450,11 @@ class OmniLyrics( BaseAction ):
         normArtist = re.sub(r'[^a-z0-9]', r'', artist.casefold())
         normTitle = re.sub(r'[^a-z0-9]', r'', title.casefold())
         for url in urls:
-            print (r'Trying ' + url)
             lyrics = self._lyrics(url, normArtist, normTitle)
-            if (lyrics): return lyrics
+            if (lyrics):
+                if (not runningAsPlugin):
+                    print('Lyrics for "' + title + '" fetched from ' + resultURL + '\n')
+                return lyrics
         return r''
 
     def fetchLyrics( self, artist, title, language ):
@@ -487,13 +494,15 @@ class OmniLyrics( BaseAction ):
         return ((line * int(times)) + '\n')
 
     def _expandedLyrics( self, lyrics ):
-        wellKnownPartNames = r'vers|stro|chor|refr|estribillo|ritornello|リフレイ|후렴|英語|惯称|рефре́н'
-        lyrics = re.sub((r'([^\n]\n)\[(([0-9]+\s)?(' + wellKnownPartNames + r'))'), r'\1\n[\2', lyrics)
+        wellKnownPartNames = r'(vers|stro|chor|refr|estribillo|ritornello|リフレイ|후렴|英語|惯称|рефре́н)'
+        wellKnownPartNames = r'([^\n]\n)(\n)?\[(( *[0-9]+ *)?' + wellKnownPartNames + r'[^\n]*)\]'
+        partNameFix = lambda x: x.group(1) + '\n' + r'[' + x.group(3).casefold() + r']'
+        lyrics = re.sub(wellKnownPartNames, partNameFix, lyrics, flags=re.IGNORECASE)
         lyrics = '\n' + lyrics.replace('\n\n', '\n\n\n') + '\n'
-        repeatedLines = r'(\n[^\n]+)\[\s*([Xx]\s*([1-9][0-9]*)|([1-9][0-9]*)\s*[Xx])\s*\]'
+        repeatedLines = r'(\n[^\n]+)[\[(]\s*([Xx]\s*([1-9][0-9]*)|([1-9][0-9]*)\s*[Xx])\s*[)\]]'
         repeatedLines += r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*\n'
         lyrics = re.sub(repeatedLines, self._repeatedLine, lyrics, flags=re.MULTILINE)
-        partsWithDescr = re.compile(r'\n(\[[\w\s,/+_-]+\])\n(([^\n]+\n)+)\n', re.MULTILINE)
+        partsWithDescr = re.compile(r'\n(\[[\w\s:&,/+_-]+\])\n(([^\n]+\n)+)\n', re.MULTILINE)
         parts = [(part[0], part[1]) for part in partsWithDescr.findall(lyrics)]
         for part in parts:
             lyrics = re.sub((re.escape(part[0]) + r'\n\n'), (part[1] + r'\n'), lyrics)
@@ -506,7 +515,11 @@ class OmniLyrics( BaseAction ):
         lyrics = lyrics.replace(r'\r', r'\n')
         lyrics = re.sub(r' (\n|$)', r'\1', lyrics, flags=re.MULTILINE)
         lyrics = re.sub(r'(^|\n) ', r'\1', lyrics, flags=re.MULTILINE)
-        lyrics = re.sub(r'(\[\w+(\s+\w+)?\])', lambda x: x.group(1).casefold(), lyrics)
+        lyrics = re.sub(r'(\[\w+( +\w+)?\])', lambda x: x.group(1).casefold(), lyrics)
+        wellKnownMeta1 = r'\[(.*solo|intro.*|outro|instru.*|.*instrumental)\]'
+        wellKnownMeta2 = r'\[(.*solo|instru.*|.*instrumental)\]'
+        lyrics = re.sub((r'([^\n]\n)' + wellKnownMeta1), r'\1\n[\2]', lyrics, flags=re.IGNORECASE)
+        lyrics = re.sub((wellKnownMeta2 + r'(\n[^\n])'), r'[\1]\n\2', lyrics, flags=re.IGNORECASE)
         lyrics = re.sub(r'\n.*https?://.*\n', r'\n', lyrics)
         lyrics = self._expandedLyrics(lyrics)
         lyrics = re.sub(r'\n\n+', r'\n\n', lyrics, flags=re.MULTILINE)
