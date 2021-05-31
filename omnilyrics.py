@@ -319,6 +319,7 @@ class OmniLyrics( BaseAction ):
     def _lyrics( self, lyricsURL ):
         if (not lyricsURL): return None
         page = self._request(lyricsURL, headers=self.headers)
+        if (not page): return None
         page = BeautifulSoup(page.content, r'lxml')
         for domain, scraper in self.scrapers.items():
             if (domain in lyricsURL): return scraper(page)
@@ -334,8 +335,8 @@ class OmniLyrics( BaseAction ):
         queryResults = query.get(r'items', [])
         # try scraping lyrics from top search results:
         for i in range(len(queryResults)):
-            result_url = queryResults[i][r'link']
-            try: lyrics = self._lyrics(result_url)
+            resultURL = queryResults[i][r'link']
+            try: lyrics = self._lyrics(resultURL, artist, title)
             except: lyrics = r''
             if (lyrics): return lyrics
         return r'' # no results
@@ -343,7 +344,7 @@ class OmniLyrics( BaseAction ):
     def _fetchDirectly( self, artist, title, language ):
         urls = [generateURL(artist, title) for generateURL in self._autoURLS]
         for url in urls:
-            lyrics = self._lyrics(url)
+            lyrics = self._lyrics(url, artist, title)
             if (lyrics): return lyrics
         return r''
 
@@ -358,8 +359,8 @@ class OmniLyrics( BaseAction ):
             lang = iso639.languages.part3.get(language, iso639.languages.part3[r'und']).name
             lang = language + r' (' + lang + r')'
             print('\n TITLE:    ', title, '\n ARTIST:   ', artist, '\n LANGUAGE: ', lang, '\n')
-        lyrics = None #self._fetchThroughGCS(artist, title, language)
-        if (not lyrics): lyrics = self._fetchDirectly(artist, title, language)
+        lyrics = self._fetchDirectly(artist, title, language)
+        if (not lyrics): lyrics = self._fetchThroughGCS(artist, title, language)
         return lyrics
 
     def _fixedLanguage( self, language ):
@@ -384,6 +385,8 @@ class OmniLyrics( BaseAction ):
         return ((line * int(times)) + '\n')
 
     def _expandedLyrics( self, lyrics ):
+        wellKnownPartNames = r'vers|stro|chor|refr|estribillo|ritornello|リフレイ|후렴|英語|惯称|рефре́н'
+        lyrics = re.sub((r'([^\n]\n)\[(([0-9]+\s)?(' + wellKnownPartNames + r'))'), r'\1\n[\2', lyrics)
         lyrics = '\n' + lyrics.replace('\n\n', '\n\n\n') + '\n'
         repeatedLines = r'(\n[^\n]+)\[\s*([Xx]\s*([1-9][0-9]*)|([1-9][0-9]*)\s*[Xx])\s*\]'
         repeatedLines += r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*\n'
