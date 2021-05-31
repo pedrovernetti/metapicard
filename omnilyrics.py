@@ -44,6 +44,7 @@ PLUGIN_LICENSE_URL = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
 
 if (not (__name__ == "__main__")):
     runningAsPlugin = True
+    from functools import partial
     from PyQt5 import QtWidgets
     from picard import config, log
     from picard.config import TextOption, BoolOption
@@ -53,6 +54,7 @@ if (not (__name__ == "__main__")):
     from picard.track import Track
     from picard.ui.itemviews import BaseAction, register_file_action, register_track_action
     from picard.ui.options import OptionsPage, register_options_page
+    from picard.util import thread
 else:
     BaseAction = object
     runningAsPlugin = False
@@ -64,13 +66,13 @@ else:
 def _letrasScraper( page, normArtist, normTitle ):
     title = page.find_all(r'div', {r'class': r'cnt-head_title'})
     if (title):
-        artist = title.find_all(r'h2')
-        title = title.find_all(r'h1')
+        artist = title[0].find_all(r'h2')
+        title = title[0].find_all(r'h1')
         if (artist):
-            artist = sub.re(r'\W', r'', unidecode(artist[0].get_text().casefold()))
+            artist = re.sub(r'\W', r'', unidecode(artist[0].get_text().casefold()))
             if (artist != normArtist): return None
         if (title):
-            title = sub.re(r'\W', r'', unidecode(title[0].get_text().casefold()))
+            title = re.sub(r'\W', r'', unidecode(title[0].get_text().casefold()))
             if (title != normTitle): return None
     all_extracts = page.select(r'div[class*="cnt-letra"]')
     if (not all_extracts): return None
@@ -255,7 +257,18 @@ def _glamShamScraper( page, normArtist, normTitle ):
 
 
 def _letrasURL( artist, title ):
-    pass
+    artistURL = re.sub(r'[\s/-]+', r'-', re.sub(r'[^\w\s/-]', r'', unidecode(artist.casefold())))
+    artistURL = r'https://www.letras.mus.br/' + artistURL.strip(r'-') + r'/'
+    artistPage = requests.get(artistURL, headers=OmniLyrics.headers)
+    if (not artistPage): return None
+    artistPage = BeautifulSoup(artistPage.content, r'lxml')
+    songs = artistPage.find_all(r'a', {r'class': r'song-name'})
+    if (not songs): return None
+    title = re.sub(r'\W', r'', title.casefold())
+    for song in songs:
+        if (re.sub(r'\W', r'', song.get_text().casefold()).endswith(title)):
+            return (r'https://www.letras.mus.br' + song[r'href'])
+    return None
 
 def _geniusURL( artist, title ):
     artist = unidecode(artist[0].title() + artist[1:].casefold())
@@ -267,7 +280,7 @@ def _geniusURL( artist, title ):
 def _aZLyricsURL( artist, title ):
     artist = re.sub(r'\W+', r'', unidecode(artist.casefold()))
     title = re.sub(r'\W+', r'', unidecode(title.casefold()))
-    return (r'https://www.azlyrics.com/lyrics/' + artist + r'/' + title + '.html')
+    return (r'https://www.azlyrics.com/lyrics/' + artist[0] + r'/' + artist + r'/' + title + '.html')
 
 def _lyricsModeURL( artist, title ):
     artist = re.sub(r'[^a-z0-9\s_-]+', r'', artist.upper().casefold())
@@ -399,12 +412,12 @@ class OmniLyrics( BaseAction ):
 
     def _lyrics( self, lyricsURL, normArtist, normTitle ):
         if (not lyricsURL): return None
-        page = self._request(lyricsURL, headers=self.headers)
+        page = requests.get(lyricsURL, headers=self.headers) #TODO switch back to self._request ?
         if (not page): return None
         page = BeautifulSoup(page.content, r'lxml')
         for domain, scraper in self.scrapers.items():
             if (domain in lyricsURL): return scraper(page, normArtist, normTitle)
-        return None # no scrapper available for this search result
+        return None # no scraper available for this search result
 
     def _fetchThroughGCS( self, artist, title, language ):
         query = re.sub(r'[^\w\s]', r'', (artist.strip() + r' ' + title.strip()))
@@ -426,10 +439,12 @@ class OmniLyrics( BaseAction ):
 
     def _fetchDirectly( self, artist, title, language ):
         urls = [generateURL(artist, title) for generateURL in self._autoURLS]
+        urls = [url for url in urls if ((type(url) == str) and len(url))]
         shuffle(urls)
         normArtist = re.sub(r'[^a-z0-9]', r'', artist.casefold())
         normTitle = re.sub(r'[^a-z0-9]', r'', title.casefold())
         for url in urls:
+            print (r'Trying ' + url)
             lyrics = self._lyrics(url, normArtist, normTitle)
             if (lyrics): return lyrics
         return r''
@@ -533,15 +548,32 @@ class OmniLyrics( BaseAction ):
             if (detectedLanguage[0] != r'und'): metadata[r'language'] = detectedLanguage[0]
         metadata[r'lyrics'] = self.lyricsMadeTidy(lyrics)
 
+    def _finish( self, file, result=None, error=None ):
+        if not error:
+            self.tagger.window.set_statusbar_message(
+                N_('Lyrics for "%(filename)s" successfully updated.'),
+                {'filename': file.filename}
+            )
+        else:
+            self.tagger.window.set_statusbar_message(
+                N_('Could not update lyrics for "%(filename)s".'),
+                {'filename': file.filename}
+            )
+
+    def processTrack( self, album, metadata, track, release ):
+        for f in track.linked_files:
+            thread.run_task(partial(self.process, album, metadata, track, release, False), partial(self._finish, f))
+
     def processFile( self, track, file ):
-        self.process(None, file.metadata, track, None, False)
+        thread.run_task(partial(self.process, None, file.metadata, track, None, False), partial(self._finish, file))
 
     def callback( self, objs ):
         for obj in objs:
             if (isinstance(obj, Track)):
-                for f in obj.linked_files: self.process(None, f.metadata, obj, None, True)
+                for f in obj.linked_files:
+                    thread.run_task(partial(self.process, None, f.metadata, obj, None, True), partial(self._finish, f))
             elif (isinstance(obj, File)):
-                self.process(None, obj.metadata, None, None, True)
+                thread.run_task(partial(self.process, None, obj.metadata, None, None, True), partial(self._finish, obj))
 
 
 
@@ -609,7 +641,7 @@ if (runningAsPlugin):
     register_file_action(OmniLyrics())
     register_file_post_addition_to_track_processor(OmniLyrics().processFile, priority=PluginPriority.LOW)
     # register_track_action(OmniLyrics())
-    # register_track_metadata_processor(OmniLyrics().process, priority=PluginPriority.LOW)
+    # register_track_metadata_processor(OmniLyrics().processTrack, priority=PluginPriority.LOW)
     register_options_page(OmniLyricsOptionsPage)
 
 
