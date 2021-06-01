@@ -281,7 +281,7 @@ def _letrasURL( artist, title ):
 
 def _geniusURL( artist, title ):
     artist = unidecode(artist[0].title() + artist[1:].casefold())
-    title = unidecode(title.casefold())
+    title = unidecode(re.sub(r'[æǽǣǳǆĳǉǌœȹ]', r'', title.casefold())).replace(r'&', r' and ')
     artist = re.sub(r'[\s-]+', r'-', re.sub(r'[^\w\s-]+', r'', artist)).strip(r'-')
     title = re.sub(r'[\s-]+', r'-', re.sub(r'[^\w\s-]+', r'', title)).strip(r'-')
     return (r'https://genius.com/' + artist + r'-' + title + r'-lyrics')
@@ -407,10 +407,7 @@ class OmniLyrics( BaseAction ):
         if (runningAsPlugin):
             self.gcsAPIKey = config.setting[r'gcsAPIKey']
             self.gcsEngineID = config.setting[r'gcsEngineID']
-            if ((type(self.gcsAPIKey) != str) or (type(self.gcsEngineID) != str)):
-                error = 'GCS API key or machine ID missing'
-                log.debug('{}: {}'.format(PLUGIN_NAME, error))
-                return None
+            if ((type(self.gcsAPIKey) != str) or (type(self.gcsEngineID) != str)): return None
         customSearchURL = r'https://www.googleapis.com/customsearch/v1/siterestrict'
         customSearchParameters = {r'key': self.gcsAPIKey, r'cx': self.gcsEngineID, r'q': song,}
         if (language != r'und'):
@@ -493,28 +490,36 @@ class OmniLyrics( BaseAction ):
 
     def _detectLanguage( self, lyrics ):
         if (not lyrics): return (r'und', 1)
+        lyrics = re.sub(r' +', r' ', re.sub(r'\W', r' ', re.sub(r'\[[^\]]*\]', r'', lyrics)))
+        if (len(lyrics) < 5): return (r'und', 1)
         lang = langdetect(lyrics)[0]
         return (iso639.languages.part1[lang.lang[:2]].part3, lang.prob)
 
     def _repeatedLine( self, x ):
         line = x.group(1)
+        nextChar = x.group(5)
+        if (not nextChar): nextChar = r''
         times = x.group(3) if (not x.group(4)) else x.group(4)
-        return ((line * int(times)) + '\n')
+        if (re.match(r'^\n *\[[^\n\]]+\] *$', line)):
+            line += '\n'
+            if (re.match(r'\w$', nextChar)): return ((line * int(times)) + nextChar)
+        return ((line * int(times)) + '\n' + nextChar)
 
     def _expandedLyrics( self, lyrics ):
-        wellKnownPartNames = r'(vers|stro|chor|refr|estribillo|ritornello|リフレイ|후렴|英語|惯称|рефре́н)'
+        lyrics = '\n' + lyrics + '\n'
+        wellKnownPartNames = r'(vers|stro|(pr\w\W?)?chor|refr|estribillo|ritornello|solo\W\w|[^\n]+\Wsolo|'
+        wellKnownPartNames += r'リフレイ|후렴|英語|惯称|рефре́н)'
         wellKnownPartNames = r'([^\n]\n)(\n)?\[(( *[0-9]+ *)?' + wellKnownPartNames + r'[^\n]*)\]'
         partNameFix = lambda x: x.group(1) + '\n' + r'[' + x.group(3).casefold() + r']'
         lyrics = re.sub(wellKnownPartNames, partNameFix, lyrics, flags=re.IGNORECASE)
         lyrics = '\n' + lyrics.replace('\n\n', '\n\n\n') + '\n'
-        repeatedLines = r'(\n[^\n]+)[\[(]\s*([Xx]\s*([1-9][0-9]*)|([1-9][0-9]*)\s*[Xx])\s*[)\]]'
-        repeatedLines += r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*\n'
+        repeatedLines = r'(\n[^\n]+)[\[(]\s*([Xx]\s*([1-9][0-9]*)|([1-9][0-9]*)\s*[Xx])\s*[)\]] *\n(.)?'
         lyrics = re.sub(repeatedLines, self._repeatedLine, lyrics, flags=re.MULTILINE)
-        partsWithDescr = re.compile(r'\n(\[[\w\s:&,/+_-]+\])\n(([^\n]+\n)+)\n', re.MULTILINE)
+        partsWithDescr = re.compile(r'\n(\[[\w\s:&,/+_-]+[\w\s+]\])\n(([^\n]+\n)+)\n', re.MULTILINE)
         parts = [(part[0], part[1]) for part in partsWithDescr.findall(lyrics)]
         for part in parts:
             lyrics = re.sub((re.escape(part[0]) + r'\n\n'), (part[1] + r'\n'), lyrics)
-        return partsWithDescr.sub(r'\n\2\n', ('\n' + lyrics + '\n'))
+        return partsWithDescr.sub(r'\n\2\n', lyrics)
 
     def lyricsMadeTidy( self, lyrics ):
         horizontalSpace = r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]'
@@ -523,6 +528,7 @@ class OmniLyrics( BaseAction ):
         lyrics = lyrics.replace(r'\r', r'\n')
         lyrics = re.sub(r' (\n|$)', r'\1', lyrics, flags=re.MULTILINE)
         lyrics = re.sub(r'(^|\n) ', r'\1', lyrics, flags=re.MULTILINE)
+        lyrics = re.sub(r'\n *[.*-_#~] *\n', r'\n\n', lyrics, flags=re.MULTILINE)
         lyrics = re.sub(r'(\[\w+( +\w+)?\])', lambda x: x.group(1).casefold(), lyrics)
         wellKnownMeta1 = r'\[(.*solo|intro.*|outro|instru.*|.*instrumental)\]'
         wellKnownMeta2 = r'\[(.*solo|instru.*|.*instrumental)\]'
