@@ -461,7 +461,7 @@ class OmniLyrics( BaseAction ):
             lyrics = self._lyrics(url, normArtist, normTitle)
             if (lyrics):
                 if (not runningAsPlugin):
-                    print('Lyrics for "' + title + '" fetched from ' + resultURL + '\n')
+                    print('Lyrics for "' + title + '" fetched from ' + url + '\n')
                 return lyrics
         return r''
 
