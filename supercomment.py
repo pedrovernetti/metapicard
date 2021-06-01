@@ -18,6 +18,7 @@
 # =============================================================================================
 
 import re
+from time import time
 
 
 
@@ -47,7 +48,7 @@ class SuperComment( BaseAction ):
     _trueSubkinds = {r'compilation', r'live', r'remix', r'spokenword', r'soundtrack'}
     _kindSubkinds = {r'mixtape', r'audiobook', r'interview', r'audio drama'}
 
-    _typeSuffix = re.compile(r'\W*(demo|single|mixtape|ep|bootleg)\W*$', re.IGNORECASE)
+    _typeSuffix = re.compile(r'\W*(demo|single|mixtape|[el]p|bootleg)\W*$', re.IGNORECASE)
 
     _countryNames = { r'AF': r'Afghanistan', r'AX': r'Åland Islands', r'AL': r'Albania',
                       r'DZ': r'Algeria', r'AS': r'American Samoa', r'AD': r'Andorra',
@@ -151,13 +152,14 @@ class SuperComment( BaseAction ):
                 if (not company): company = metadata[tagName].strip()
                 labelTags += [tagName]
         for tagName in labelTags: metadata.pop(tagName, None)
-        if (self._isIndependent(company, metadata)): return r'independent;'
         catalogNumber = metadata.get(r'catalognumber', r'').strip()
         metadata.pop(r'catalognumber', None)
-        if (re.match(r'^\W*(n(one|ull)\W*)?$', catalogNumber.casefold())): catalogNumber = r''
+        if (self._isIndependent(company, metadata)): return r'independent;'
+        if (re.match(r'^\W*(n(one|ull|\W*a)\W*)?$', catalogNumber.casefold())): catalogNumber = r''
         company = re.sub(r'\s*;\s*', r' / ', company)
         catalogNumber = re.sub(r'\s*;\s*', r' / ', catalogNumber)
-        if (len(catalogNumber)): return (company + r' (' + catalogNumber + r');')
+        if (not company): return r'?;'
+        elif (len(catalogNumber)): return (company + r' (' + catalogNumber + r');')
         else: return (company + r';')
 
     def _formatWithInches( self, x ):
@@ -330,6 +332,7 @@ class SuperComment( BaseAction ):
         if (not kind):
             kindFromSuffix = self._typeSuffix.search(albumTitle)
             if (type(kindFromSuffix) == re.Match): kind = kindFromSuffix.group(1).casefold()
+            if (kind == r'lp'): kind = r'album'
         albumTitle = self._typeSuffix.sub(r'', albumTitle).strip()
         if (len(albumTitle) or (not metadata.get(r'album', None))): metadata[r'album'] = albumTitle
         kind = self._checkedKind(kind, metadata, album)
@@ -354,6 +357,11 @@ class SuperComment( BaseAction ):
 
     def _whereAndWhen( self, metadata ):
         when = metadata.get(r'date', r'')
+        if (len(when) == 2):
+            when = r'20' + when
+            if ((2000 + int(when)) > (1970 + int(time() / 31557600))): when = r'19' + when[2:]
+        # elif ((len(when) == 1) or (len(when) == 3)): when = when.rjust(4, r' ')
+        # when += r'????-??-??'[len(when):]
         originalYear = metadata.get(r'originalyear', metadata.get(r'originaldate', None))
         if (not originalYear): originalYear = metadata.get(r'~recording_firstreleasedate', None)
         if (not originalYear): originalYear = metadata.get(r'~releasegroup_firstreleasedate', when)
