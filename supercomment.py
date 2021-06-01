@@ -156,7 +156,7 @@ class SuperComment( BaseAction ):
         metadata.pop(r'catalognumber', None)
         if (self._isIndependent(company, metadata)): return r'independent;'
         if (re.match(r'^\W*(n(one|ull|\W*a)\W*)?$', catalogNumber.casefold())): catalogNumber = r''
-        company = re.sub(r'\s*;\s*', r' / ', company)
+        company = re.sub(r'([^\s])/([^\s])', r'\1 / \2', re.sub(r'\s*;\s*', r' / ', company))
         catalogNumber = re.sub(r'\s*;\s*', r' / ', catalogNumber)
         if (not company): return r'?;'
         elif (len(catalogNumber)): return (company + r' (' + catalogNumber + r');')
