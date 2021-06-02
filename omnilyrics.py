@@ -72,8 +72,8 @@ def _letrasScraper( page, normArtist, normTitle ):
             artist = re.sub(r'\W', r'', unidecode(artist[0].get_text().casefold()))
             if (artist != normArtist): return None
         if (title):
-            title = re.sub(r'\W', r'', unidecode(title[0].get_text().casefold()))
-            if (title != normTitle): return None
+            title = unidecode(title[0].get_text().replace(r'&', r'and').casefold())
+            if (re.sub(r'\W', r'', title) != normTitle): return None
     all_extracts = page.select(r'div[class*="cnt-letra"]')
     if (not all_extracts): return None
     lyrics = r''
@@ -104,7 +104,7 @@ def _geniusScraper( page, normArtist, normTitle ):
         if (title != normTitle): return None
     artist = page.find_all(r'a', {r'class': r'header_with_cover_art-primary_info-primary_artist'})
     if (artist):
-        artist = re.sub(r'[^a-z0-9]', r'', artist[0].get_text().casefold())
+        artist = re.sub(r'[^a-z0-9]', r'', artist[0].get_text().replace(r'&', r'and').casefold())
         if (artist != normArtist): return None
     lyrics = _geniusScraperMethod1(page) or _geniusScraperMethod2(page)
     return lyrics
@@ -257,8 +257,8 @@ def _glamShamScraper( page, normArtist, normTitle ):
 
 
 def _letrasURL( artist, title ):
-    artistURL = re.sub(r'[\s/-]+', r'-', re.sub(r'[^\w\s/-]', r'', unidecode(artist.casefold())))
-    artistURL = r'https://www.letras.mus.br/' + artistURL.strip(r'-') + r'/'
+    artistURL = re.sub(r'[^\w\s/-]', r'', unidecode(artist.casefold())).replace(r'&', r'and')
+    artistURL = r'https://www.letras.mus.br/' + re.sub(r'[\s/-]+', r'-', artistURL).strip(r'-') + r'/'
     try: artistPage = requests.get(artistURL, headers=OmniLyrics.headers)
     except: return None
     if (not artistPage): return None
@@ -452,7 +452,7 @@ class OmniLyrics( BaseAction ):
         urls = [generateURL(artist, title) for generateURL in self._autoURLS]
         urls = [url for url in urls if ((type(url) == str) and len(url))]
         shuffle(urls)
-        normArtist = re.sub(r'[^a-z0-9]', r'', artist.casefold())
+        normArtist = re.sub(r'[^a-z0-9]', r'', artist.casefold().replace(r'&', r'and'))
         normTitle = re.sub(r'[^a-z0-9]', r'', title.casefold())
         for url in urls:
             lyrics = self._lyrics(url, normArtist, normTitle)
@@ -507,10 +507,10 @@ class OmniLyrics( BaseAction ):
 
     def _expandedLyrics( self, lyrics ):
         lyrics = '\n' + lyrics + '\n'
-        wellKnownPartNames = r'(vers|stro|(pr\w\W?)?chor|refr|estribillo|ritornello|solo\W\w|[^\n]+\Wsolo|'
+        wellKnownPartNames = r'(vers|stro|(pr\w\W?|p\wst?\W?)?chor|refr|estribillo|ritornello|'
         wellKnownPartNames += r'リフレイ|후렴|英語|惯称|рефре́н)'
-        wellKnownPartNames = r'([^\n]\n)(\n)?\[(( *[0-9]+ *)?' + wellKnownPartNames + r'[^\n]*)\]'
-        partNameFix = lambda x: x.group(1) + '\n' + r'[' + x.group(3).casefold() + r']'
+        wellKnownPartNames = r'([^\n]\n|^)(\n*)?\[(( *[0-9]+ *)?' + wellKnownPartNames + r'[^\]\n]*)\] *'
+        partNameFix = lambda x: x.group(1) + '\n' + r'[' + re.sub(r'\W', r'', x.group(3).casefold()) + r']'
         lyrics = re.sub(wellKnownPartNames, partNameFix, lyrics, flags=re.IGNORECASE)
         lyrics = '\n' + lyrics.replace('\n\n', '\n\n\n') + '\n'
         repeatedLines = r'(\n[^\n]+)[\[(]\s*([Xx]\s*([1-9][0-9]*)|([1-9][0-9]*)\s*[Xx])\s*[)\]] *\n(.)?'
@@ -522,6 +522,8 @@ class OmniLyrics( BaseAction ):
         return partsWithDescr.sub(r'\n\2\n', lyrics)
 
     def lyricsMadeTidy( self, lyrics ):
+        lyrics = re.sub(r'["ˮ“”‟❝❞＂]', r'"', re.sub(r'[´`’ʼʹʻʽˈˊʹ՚᾽᾿‘‛′‵＇]', "'", lyrics))
+        lyrics = re.sub('[‐‑֊־﹣⁃\u1806]', r'-', lyrics)
         horizontalSpace = r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]'
         lyrics = re.sub((horizontalSpace + r'+'), r' ', lyrics)
         lyrics = re.sub(r'(\r+\n|\r*\n\r+|\u0085)', r'\n', lyrics, flags=re.MULTILINE)
@@ -534,7 +536,7 @@ class OmniLyrics( BaseAction ):
         wellKnownMeta2 = r'\[(.*solo|instru.*|.*instrumental)\]'
         lyrics = re.sub((r'([^\n]\n)' + wellKnownMeta1), r'\1\n[\2]', lyrics, flags=re.IGNORECASE)
         lyrics = re.sub((wellKnownMeta2 + r'(\n[^\n])'), r'[\1]\n\2', lyrics, flags=re.IGNORECASE)
-        lyrics = re.sub(r'\n.*https?://.*\n', r'\n', lyrics)
+        lyrics = re.sub(r'\n[^\n]*https?://[^\n]*\n', r'\n', lyrics)
         lyrics = self._expandedLyrics(lyrics)
         lyrics = re.sub(r'\n\n+', r'\n\n', lyrics, flags=re.MULTILINE)
         return lyrics.strip()
@@ -565,7 +567,7 @@ class OmniLyrics( BaseAction ):
             title = metadata.get(r'title', metadata.get(r'_recordingtitle', metadata.get(r'work', None)))
             fetchedLyrics = self.fetchLyrics(artist, title, language)
             if (len(fetchedLyrics)): lyrics = fetchedLyrics
-        if (re.match(r'^\Winstrumental\W$', lyrics, flags=re.IGNORECASE)):
+        if (re.sub(r'\W', r'', unidecode(lyrics.casefold())) == r'instrumental'):
             metadata[r'lyrics'] = r'[instrumental]'
             metadata[r'language'] = r'zxx'
             metadata.pop(r'lyricist', None)
