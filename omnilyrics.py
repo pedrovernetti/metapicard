@@ -64,9 +64,9 @@ else:
 
 
 def _letrasScraper( page, normArtist, normTitle ):
-    title = page.find_all(r'div', {r'class': r'cnt-head_title'})
+    title = page.find_all(r'div', {r'class': r'cnt-head_title'}) if normTitle else None
     if (title):
-        artist = title[0].find_all(r'h2')
+        artist = title[0].find_all(r'h2') if normArtist else None
         title = title[0].find_all(r'h1')
         if (artist):
             artist = re.sub(r'\W', r'', unidecode(artist[0].get_text().casefold()))
@@ -79,7 +79,7 @@ def _letrasScraper( page, normArtist, normTitle ):
     lyrics = r''
     for extract in all_extracts:
         for br in extract.find_all(r'br'): br.replace_with('\n')
-        for p in extract.find_all(r'p'):
+        for p in extract.find_all(r'p', recursive=False):
             lyrics += p.get_text() + '\n\n'
     return lyrics.strip()
 
@@ -98,11 +98,12 @@ def _geniusScraperMethod2( page ):
     return lyrics.strip()
 
 def _geniusScraper( page, normArtist, normTitle ):
-    title = page.find_all(r'h1')
+    title = page.find_all(r'h1') if normTitle else None
     if (title):
         title = re.sub(r'[^a-z0-9]', r'', title[0].get_text().casefold())
         if (title != normTitle): return None
-    artist = page.find_all(r'a', {r'class': r'header_with_cover_art-primary_info-primary_artist'})
+    artistElementClass = r'header_with_cover_art-primary_info-primary_artist'
+    artist = page.find_all(r'a', {r'class': artistElementClass}) if normArtist else None
     if (artist):
         artist = re.sub(r'[^a-z0-9]', r'', artist[0].get_text().replace(r'&', r'and').casefold())
         if (artist != normArtist): return None
@@ -110,11 +111,11 @@ def _geniusScraper( page, normArtist, normTitle ):
     return lyrics
 
 def _aZLyricsScraper( page, normArtist, normTitle ):
-    title = page.find_all(r'h1')
+    title = page.find_all(r'h1') if normTitle else None
     if (title):
         title = re.sub(r'[^a-z0-9]', r'', title[0].get_text()[1:-7].casefold())
         if (title != normTitle): return None
-    artist = page.find_all(r'h2')
+    artist = page.find_all(r'h2') if normArtist else None
     if (artist):
         artist = re.sub(r'[^a-z0-9]', r'', artist[0].get_text()[:-7].casefold())
         if (artist != normArtist): return None
@@ -124,11 +125,11 @@ def _aZLyricsScraper( page, normArtist, normTitle ):
     return extract.get_text().replace('\n\n', '\n').strip()
 
 def _lyricsModeScraper( page, normArtist, normTitle ):
-    title = page.select(r'h1[class*=song_name]')
+    title = page.select(r'h1[class*=song_name]') if normTitle else None
     if (title):
         title = title[0].find_all(r'span')
         if (title):
-            artist = re.sub(r'[^a-z0-9]', r'', title[0].get_text()[1:-7].casefold())
+            artist = re.sub(r'[^a-z0-9]', r'', title[0].get_text()[1:-7].casefold()) if normArtist else None
             if (artist != normArtist): return None
             if (len(title) > 1):
                 title = re.sub(r'[^a-z0-9]', r'', title[1].get_text()[1:-7].casefold())
@@ -142,9 +143,9 @@ def _vagalumeScraper( page, normArtist, normTitle ):
     artist = page.find_all(r'h1')
     if (artist):
         if (len(artist) > 1):
-            title = re.sub(r'[^a-z0-9]', r'', artist[1].get_text().casefold())
+            title = re.sub(r'[^a-z0-9]', r'', artist[1].get_text().casefold()) if normTitle else None
             if (title != normTitle): return None
-        artist = re.sub(r'[^a-z0-9]', r'', artist[0].get_text().casefold())
+        artist = re.sub(r'[^a-z0-9]', r'', artist[0].get_text().casefold()) if normArtist else None
         if (artist != normArtist): return None
     extract = page.find(r'div', {r'id': r'lyrics'})
     if (not extract): return None
@@ -152,11 +153,11 @@ def _vagalumeScraper( page, normArtist, normTitle ):
     return extract.get_text().strip()
 
 def _lyricsComScraper( page, normArtist, normTitle ):
-    title = page.find_all(r'h1', {r'id': r'lyric-title-text'})
+    title = page.find_all(r'h1', {r'id': r'lyric-title-text'}) if normTitle else None
     if (title):
         title = re.sub(r'[^a-z0-9]', r'', title[0].get_text().casefold())
         if (title != normTitle): return None
-    artist = page.find_all(r'h3', {r'class': r'lyric-artist'})
+    artist = page.find_all(r'h3', {r'class': r'lyric-artist'}) if normArtist else None
     if (artist):
         artist = artist[0].find_all(r'a')
         if (artist):
@@ -168,11 +169,11 @@ def _lyricsComScraper( page, normArtist, normTitle ):
     return extract.get_text().strip()
 
 def _lyricsManiaScraper( page, normArtist, normTitle ):
-    title = page.find_all(r'h1')
+    title = page.find_all(r'h1') if normTitle else None
     if (title):
         title = re.sub(r'[^a-z0-9]', r'', title[0].get_text().casefold())
         if (title != normTitle): return None
-    artist = page.find_all(r'h2')
+    artist = page.find_all(r'h2') if normArtist else None
     if (artist):
         artist = re.sub(r'[^a-z0-9]', r'', artist[0].get_text().casefold())
         if (artist != normArtist): return None
@@ -187,7 +188,7 @@ def _lyricsManiaScraper( page, normArtist, normTitle ):
     #TODO: request returns blank string
 
 def _metroLyricsScraper( page, normArtist, normTitle ):
-    title = page.find_all(r'h1')
+    title = page.find_all(r'h1') if (normArtist and normTitle) else None
     if (title):
         title = re.sub(r'[^a-z0-9]', r'', title[0].get_text()[:-7].casefold())
         if (title != (normArtist + normTitle)): return None
@@ -200,7 +201,7 @@ def _metroLyricsScraper( page, normArtist, normTitle ):
     return lyrics.strip()
 
 def _lyricsBellScraper( page, normArtist, normTitle ):
-    title = page.find_all(r'h1')
+    title = page.find_all(r'h1') if (normArtist and normTitle) else None
     if (title):
         title = re.sub(r'[^a-z0-9]', r'', title[0].get_text().casefold())
         if (title != (normTitle + r'lyrics' + normArtist)): return None
@@ -213,7 +214,7 @@ def _lyricsBellScraper( page, normArtist, normTitle ):
     return lyrics
 
 def _lyricsTEDScraper( page, normArtist, normTitle ):
-    title = page.find_all(r'h1')
+    title = page.find_all(r'h1') if (normArtist and normTitle) else None
     if (title):
         title = re.sub(r'[^a-z0-9]', r'', title[0].get_text().casefold())
         if (not title.startswith(normTitle)): return None
@@ -225,7 +226,7 @@ def _lyricsTEDScraper( page, normArtist, normTitle ):
     return lyrics.replace(r'<br>', '\n').strip()
 
 def _lyricsOffScraper( page, normArtist, normTitle ):
-    title = page.find_all(r'h1')
+    title = page.find_all(r'h1') if (normArtist and normTitle) else None
     if (title):
         title = re.sub(r'[^a-z0-9]', r'', title[0].get_text().casefold())
         if (not title.startswith(normTitle)): return None
@@ -237,7 +238,7 @@ def _lyricsOffScraper( page, normArtist, normTitle ):
     return lyrics.strip()
 
 def _lyricsMINTScraper( page, normArtist, normTitle ):
-    title = page.find_all(r'h1')
+    title = page.find_all(r'h1') if (normArtist and normTitle) else None
     if (title):
         title = re.sub(r'[^a-z0-9]', r'', title[0].get_text().casefold())
         if (title != (normTitle + r'lyrics' + normArtist)): return None
@@ -426,6 +427,9 @@ class OmniLyrics( BaseAction ):
         for domain, scraper in self.scrapers.items():
             if (domain in lyricsURL): return scraper(page, normArtist, normTitle)
         return None # no scraper available for this search result
+
+    def fetchLyricsFrom( self, url ):
+        return self._lyrics(url, None, None)
 
     def _fetchThroughGCS( self, artist, title, language ):
         query = re.sub(r'[^\w\s]', r'', (artist.strip() + r' ' + title.strip()))
@@ -697,7 +701,9 @@ else:
 
     omnilyrics = OmniLyrics()
     lyrics = r''
-    if (len(argv) == 4): lyrics = omnilyrics.fetchLyrics(argv[-3], argv[-2], argv[-1])
+    url = re.compile(r'^(https?://|www\.)[\w.-]+/.*$', re.IGNORECASE)
+    if ((len(argv) == 2) and (url.match(argv[-1]))): lyrics = omnilyrics.fetchLyricsFrom(argv[-1])
+    elif (len(argv) == 4): lyrics = omnilyrics.fetchLyrics(argv[-3], argv[-2], argv[-1])
     elif (len(argv) == 3): lyrics = omnilyrics.fetchLyrics(argv[-2], argv[-1], r'und')
     else: print("Usage: python3 '" + argv[0] + "' ARTIST TITLE [LANGUAGE]")
     if (len(lyrics)): print(omnilyrics.lyricsMadeTidy(lyrics))
