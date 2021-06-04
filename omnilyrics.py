@@ -499,11 +499,18 @@ class OmniLyrics( BaseAction ):
         lang = langdetect(lyrics)[0]
         return (iso639.languages.part1[lang.lang[:2]].part3, lang.prob)
 
+    def _multiplier( self, x ):
+        previousChar = x.group(1)
+        num = x.group(3) if (not x.group(4)) else x.group(4)
+        end = x.group(5)
+        if (previousChar): return (previousChar + r' x' + num + '\n')
+        else: return (r'x' + num + end)
+
     def _repeatedLine( self, x ):
         line = x.group(1)
-        nextChar = x.group(5)
+        nextChar = x.group(3)
         if (not nextChar): nextChar = r''
-        times = x.group(3) if (not x.group(4)) else x.group(4)
+        times = x.group(2)
         if (re.match(r'^\n *\[[^\n\]]+\] *$', line)):
             line += '\n'
             if (re.match(r'\w$', nextChar)): return ((line * int(times)) + nextChar)
@@ -513,11 +520,11 @@ class OmniLyrics( BaseAction ):
         beg = x.group(1)
         if (beg != '\n\n'): beg = '\n' + beg
         part = '\n' + beg + x.group(2) + '\n'
-        times = x.group(4) if (not x.group(5)) else x.group(5)
-        return (part * int(times))
+        times = x.group(4)
+        return ((part * int(times)) + '\n')
 
     def _expandedLyrics( self, lyrics ):
-        lyrics = '\n' + lyrics + '\n'
+        lyrics = '\n\n' + lyrics + '\n\n'
         wellKnownPartNames = r'(vers|stro|(pr\w\W?|p\wst?\W?)?chor|refr|estribillo|ritornello|'
         wellKnownPartNames += r'リフレイ|후렴|英語|惯称|рефре́н)'
         wellKnownPartNames = r'([^\n]\n|^)(\n*)?\[(( *[0-9]+ *)?' + wellKnownPartNames + r'[^\]\n]*)\] *'
@@ -527,11 +534,12 @@ class OmniLyrics( BaseAction ):
         if (not re.findall((bridge + r' *\n'), lyrics, flags=re.IGNORECASE)):
             lyrics = re.sub((r'\n *' + bridge), r'\n\n', lyrics, flags=re.IGNORECASE)
         lyrics = '\n' + lyrics.replace('\n\n', '\n\n\n') + '\n'
-        repeatedLines = r'(\n[^\n]+?)[\[(]? *([Xx] *([1-9][0-9]*)|([1-9][0-9]*) *[Xx]) *[)\]]? *\n(.)?'
+        multiplier = r'([^\s\[(])? *[\[(]? *([Xx] *([1-9][0-9]*)|([1-9][0-9]*) *[Xx]) *[\])]? *(\n|$)'
+        lyrics = re.sub(multiplier, self._multiplier, lyrics)
+        repeatedLines = r'(\n[^\n]+?) x([1-9][0-9]*)\n(.)?'
         lyrics = re.sub(repeatedLines, self._repeatedLine, lyrics, flags=re.MULTILINE)
-        repeatedParts = r'(\n\n|^\n?|\[[^\]\n]+\]\n)(([^\n]+\n)+)'
-        repeatedParts += r' *[\[(]? *([Xx] *([1-9][0-9]*)|([1-9][0-9]*) *[Xx]) *[\])]? *(\n\n|\n?$)'
-        #lyrics = re.sub(repeatedParts, self._repeatedPart, lyrics, flags=re.MULTILINE)
+        repeatedParts = r'(\n\n|^\n?|\[[^\]\n]+\]\n)(([^\n]+\n)+)x([1-9][0-9]*)\n'
+        lyrics = re.sub(repeatedParts, self._repeatedPart, lyrics, flags=re.MULTILINE)
         partsWithDescr = re.compile(r'\n(\[[\w\s:&,/+_-]+[\w\s+]\])\n(([^\n]+\n)+)\n', re.MULTILINE)
         parts = [(part[0], part[1]) for part in partsWithDescr.findall(lyrics)]
         for part in parts:
@@ -552,9 +560,11 @@ class OmniLyrics( BaseAction ):
         lyrics = re.sub(r'(\[\w+( +\w+)?\])', lambda x: x.group(1).casefold(), lyrics)
         wellKnownMeta1 = r'\[(.*solo|intro.*|outro|instru.*|.*instrumental)\]'
         wellKnownMeta2 = r'\[(.*solo|instru.*|.*instrumental)\]'
-        lyrics = re.sub((r'([^\n]\n)' + wellKnownMeta1), r'\1\n[\2]', lyrics, flags=re.IGNORECASE)
-        lyrics = re.sub((wellKnownMeta2 + r'(\n[^\n])'), r'[\1]\n\2', lyrics, flags=re.IGNORECASE)
-        lyrics = re.sub(r'\n[^\n]*https?://[^\n]*\n', r'\n', lyrics)
+        flagsIM = re.IGNORECASE | re.MULTILINE
+        lyrics = re.sub((r'([^\n]\n)' + wellKnownMeta1), r'\1\n[\2]', lyrics, flags=flagsIM)
+        lyrics = re.sub((wellKnownMeta2 + r'(\n[^\n])'), r'[\1]\n\2', lyrics, flags=flagsIM)
+        lyrics = re.sub(r'(^|\n)[^\n]*https?://[^\n]*($|\n)', r'\n', lyrics, flags=flagsIM)
+        lyrics = re.sub(r'^\s*\[?produ\w+ (by|p\wr|von|a[fv]).*($|\n)', r'\n', lyrics, flags=flagsIM)
         lyrics = self._expandedLyrics(lyrics)
         lyrics = re.sub(r'\n\n+', r'\n\n', lyrics, flags=re.MULTILINE)
         return lyrics.strip()
