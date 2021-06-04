@@ -318,7 +318,7 @@ def _metroLyricsURL( artist, title ):
 
 class OmniLyrics( BaseAction ):
 
-    NAME = "Fetch Lyrics"
+    NAME = "Fetch/Update Lyrics"
 
     scrapers = { r'letras.mus':     _letrasScraper,
                  r'genius':         _geniusScraper,
@@ -505,6 +505,13 @@ class OmniLyrics( BaseAction ):
             if (re.match(r'\w$', nextChar)): return ((line * int(times)) + nextChar)
         return ((line * int(times)) + '\n' + nextChar)
 
+    def _repeatedPart( self, x ):
+        beg = x.group(1)
+        if (beg != '\n\n'): beg = '\n' + beg
+        part = '\n' + beg + x.group(2) + '\n'
+        times = x.group(4) if (not x.group(5)) else x.group(5)
+        return (part * int(times))
+
     def _expandedLyrics( self, lyrics ):
         lyrics = '\n' + lyrics + '\n'
         wellKnownPartNames = r'(vers|stro|(pr\w\W?|p\wst?\W?)?chor|refr|estribillo|ritornello|'
@@ -512,13 +519,20 @@ class OmniLyrics( BaseAction ):
         wellKnownPartNames = r'([^\n]\n|^)(\n*)?\[(( *[0-9]+ *)?' + wellKnownPartNames + r'[^\]\n]*)\] *'
         partNameFix = lambda x: x.group(1) + '\n' + r'[' + re.sub(r'\W', r'', x.group(3).casefold()) + r']'
         lyrics = re.sub(wellKnownPartNames, partNameFix, lyrics, flags=re.IGNORECASE)
+        bridge = r'\[\W*(bridge|p(o|ue)nte?|브리지|бриджа?|köprü)\W*\] *\n'
+        if (not re.findall((bridge + r' *\n'), lyrics, flags=re.IGNORECASE)):
+            lyrics = re.sub((r'\n *' + bridge), r'\n\n', lyrics, flags=re.IGNORECASE)
         lyrics = '\n' + lyrics.replace('\n\n', '\n\n\n') + '\n'
-        repeatedLines = r'(\n[^\n]+)[\[(]\s*([Xx]\s*([1-9][0-9]*)|([1-9][0-9]*)\s*[Xx])\s*[)\]] *\n(.)?'
+        repeatedLines = r'(\n[^\n]+?)[\[(]? *([Xx] *([1-9][0-9]*)|([1-9][0-9]*) *[Xx]) *[)\]]? *\n(.)?'
         lyrics = re.sub(repeatedLines, self._repeatedLine, lyrics, flags=re.MULTILINE)
+        repeatedParts = r'(\n\n|^\n?|\[[^\]\n]+\]\n)(([^\n]+\n)+)'
+        repeatedParts += r' *[\[(]? *([Xx] *([1-9][0-9]*)|([1-9][0-9]*) *[Xx]) *[\])]? *(\n\n|\n?$)'
+        #lyrics = re.sub(repeatedParts, self._repeatedPart, lyrics, flags=re.MULTILINE)
         partsWithDescr = re.compile(r'\n(\[[\w\s:&,/+_-]+[\w\s+]\])\n(([^\n]+\n)+)\n', re.MULTILINE)
         parts = [(part[0], part[1]) for part in partsWithDescr.findall(lyrics)]
         for part in parts:
-            lyrics = re.sub((re.escape(part[0]) + r'\n\n'), (part[1] + r'\n'), lyrics)
+            escaped = re.escape(part[0]).replace(r'\[', r'\[(repeat\W*)?', 1) + r'\n\n'
+            lyrics = re.sub(escaped, (part[1] + r'\n'), lyrics)
         return partsWithDescr.sub(r'\n\2\n', lyrics)
 
     def lyricsMadeTidy( self, lyrics ):
@@ -550,10 +564,12 @@ class OmniLyrics( BaseAction ):
         else:
             metadata[r'language'] = language
             if (language == r'zxx'):
-                metadata[r'lyrics'] = r'[instrumental]'
+                lyrics = metadata.get(r'lyrics', r'').strip()
+                if ((not lyrics) or (re.sub(r'\W', r'', unidecode(lyrics.casefold())) == r'instrumental')):
+                    metadata[r'lyrics'] = r'[instrumental]'
                 metadata.pop(r'lyricist', None)
                 return
-        lyrics = metadata.get(r'lyrics', r'')
+        lyrics = metadata.get(r'lyrics', r'').strip()
         nonstandardLyricsTags = []
         for key in metadata:
             if (re.match(r'^(.*\W)?lyrics\W.*$', key, flags=re.IGNORECASE)):
@@ -573,16 +589,17 @@ class OmniLyrics( BaseAction ):
             metadata.pop(r'lyricist', None)
             return
         #if (not lyrics): lyrics = self._searchForOldLyrics(track)
+        lyrics = self.lyricsMadeTidy(lyrics)
         detectedLanguage = self._detectLanguage(lyrics)
         if ((language == r'und') or (detectedLanguage[1] > 0.9)):
             if (detectedLanguage[0] != r'und'): metadata[r'language'] = detectedLanguage[0]
-        metadata[r'lyrics'] = self.lyricsMadeTidy(lyrics)
+        metadata[r'lyrics'] = lyrics
 
     def _finish( self, file, result=None, error=None ):
         if not error:
             self.tagger.window.set_statusbar_message(
-                N_('Lyrics for "%(filename)s" successfully updated.'),
-                {'filename': file.filename}
+                N_('Lyrics for "%(filename)s" successfully fetched/updated.'),
+                {'filename': re.sub(r'^.*/', r'', file.filename)}
             )
         else:
             self.tagger.window.set_statusbar_message(
