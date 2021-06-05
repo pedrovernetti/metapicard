@@ -200,6 +200,25 @@ def _metroLyricsScraper( page, normArtist, normTitle ):
         lyrics += (p.get_text().replace('\n\n', '\n') + '\n\n')
     return lyrics.strip()
 
+def _darkLyricsScraper( page, normArtist, normTitle ):
+    artist = page.find_all(r'h1') if (normArtist) else None
+    if (artist):
+        artist = re.sub(r'[^a-z0-9]', r'', artist[0].get_text()[:-7].casefold())
+        if (artist != normArtist): return None
+    songs = page.find_all(r'div', {r'class': r'lyrics'})
+    if (not songs): return None
+    songs = songs[0]
+    for br in songs.find_all(r'br'): br.replace_with('\n')
+    for a in songs.find_all(r'a'): a.replace_with_children()
+    for h3 in songs.find_all(r'h3'):
+        h3.string = r'##' + re.sub(r'[^a-z0-9]', r'', re.sub(r'^[0-9]+\.?\s*', r'', h3.get_text().casefold()))
+    for div in songs.find_all(r'div'): div.clear()
+    songs = re.sub('[\x00-\x09\x0B-\x1F\x7F\x80-\x9F]', r'', re.sub(r'\n\n', r'\n', songs.text))
+    songs = '\n' + songs.rsplit('\n', 3)[0].strip() + '\n\n##END'
+    lyrics = re.search((r'\n##\w*' + normTitle + r'\n((([^#][^\n]*)? *\n)+)'), songs, flags=re.MULTILINE)
+    if (not lyrics): return None
+    return lyrics[1].strip()
+
 def _lyricsBellScraper( page, normArtist, normTitle ):
     title = page.find_all(r'h1') if (normArtist and normTitle) else None
     if (title):
@@ -316,6 +335,23 @@ def _metroLyricsURL( artist, title ):
     title = re.sub(r'\s+', r'-', re.sub(r'[^\w\s]', r'', unidecode(title.casefold())))
     return (r'https://www.metrolyrics.com/' + title.strip(r'-') + r'-' + artist.strip(r'-') + r'.html')
 
+def _darkLyricsURL( artist, title ):
+    artistURL = re.sub(r'[^a-z0-9]', r'', artist.casefold())
+    initial = artistURL[0] if (artistURL[0] in r'abcdefghijklmnopqrstuvwxyz') else r'19'
+    artistURL = r'http://www.darklyrics.com/' + initial + r'/' + artistURL + r'.html'
+    try: artistPage = requests.get(artistURL, headers=OmniLyrics.headers)
+    except: return None
+    if (not artistPage): return None
+    artistPage = BeautifulSoup(artistPage.content, r'lxml')
+    albums = artistPage.find_all(r'div', {r'class': r'album'})
+    title = re.sub(r'\W', r'', title.casefold())
+    for album in albums:
+        if (album.get_text().strip().casefold().startswith(r'album:')):
+            for a in album.find_all(r'a'):
+                if (re.sub(r'\W', r'', a.get_text().casefold()).endswith(title)):
+                    return re.sub(r'#.*$', r'', (r'http://www.darklyrics.com/' + a[r'href'][3:]))
+    return None
+
 
 
 class OmniLyrics( BaseAction ):
@@ -327,9 +363,10 @@ class OmniLyrics( BaseAction ):
                  r'azlyrics':       _aZLyricsScraper,
                  r'lyricsmode':     _lyricsModeScraper,
                  r'vagalume':       _vagalumeScraper,
-                 r'lyrics.com':     _lyricsComScraper,
+                 r'www.lyrics.com': _lyricsComScraper,
                  r'lyricsmania':    _lyricsManiaScraper,
                  r'metrolyrics':    _metroLyricsScraper,
+                 r'darklyrics':     _darkLyricsScraper,
                  r'lyricsbell':     _lyricsBellScraper,
                  r'lyricsted':      _lyricsTEDScraper,
                  r'lyricsoff':      _lyricsOffScraper,
@@ -337,7 +374,7 @@ class OmniLyrics( BaseAction ):
                  r'glamsham':       _glamShamScraper, }
 
     _autoURLS = [ _letrasURL, _geniusURL, _aZLyricsURL, _lyricsModeURL, _vagalumeURL,
-                  _lyricsComURL, _lyricsManiaURL, _metroLyricsURL ]
+                  _lyricsComURL, _lyricsManiaURL, _metroLyricsURL, _darkLyricsURL ]
 
     validGCSLanguages = { r'ar', r'bg', r'ca', r'cs', r'da', r'de', r'el',
                           r'en', r'es', r'et', r'fi', r'fr', r'hr', r'hu',
@@ -454,7 +491,6 @@ class OmniLyrics( BaseAction ):
         for url in urls:
             url = url(artist, title)
             if (not ((type(url) == str) and len(url))): continue
-            print(url)
             lyrics = self._lyrics(url, normArtist, normTitle)
             if (lyrics):
                 if (not runningAsPlugin):
