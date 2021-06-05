@@ -228,7 +228,8 @@ class SuperComment( BaseAction ):
         digital = r'(files?|' + fileFormats + r'|' + fileSources + '|og[agmv](\W*vorbis)?|windows\W*media)\W.*'
         if ((r'digital' in what) or re.match((r'^\W*(dig\W*|' + digital + ')$'), what)): return r'digital'
         what = re.sub(r'[\s_]+', r' ', re.sub(r'[\s_]*\([^)]\)', r'', what))
-        vinyl = re.compile(r'(([0-9,.]+)(''|")[\s-]*)?(vinyl|shellac|flexi[\s-]*dis[ck]|floppy|laser[ -]?dis[ck])')
+        what = re.sub(r'[´`’ʼʹʻʽˈˊʹ՚᾽᾿‘‛′‵＇]', "'", re.sub(("(''" + r'|["ˮ“”‟❝❞〞〝＂])'), r'"', what))
+        vinyl = re.compile(r'(([0-9,.]+)(")[\s-]*)?(vinyl|shellac|flexi[\s-]*dis[ck]|floppy|laser[ -]?dis[ck])')
         if (vinyl.match(what)): return vinyl.sub(self._formatWithInches, what)
         cassette = re.compile(r'.*(micro)?[ -]*cassette.*')
         if (cassette.match(what)): return cassette.sub(r'\1cassette', what)
@@ -310,7 +311,7 @@ class SuperComment( BaseAction ):
 
     def _what( self, metadata, album ):
         if (album and (int(metadata.get(r'totaldiscs', r'0')) != 1)):
-            if (r'~supercomment_format' not in album.metadata):
+            if (not album.metadata.get(r'~supercomment_format', None)):
                 album.metadata[r'~supercomment_format'] = self._generateAlbumFormatTag(album)
             what = album.metadata[r'~supercomment_format']
         else:
