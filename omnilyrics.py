@@ -343,10 +343,9 @@ def _lyricsComURL( artist, title ):
 def _lyricsManiaURL( artist, title ):
     artist = re.sub(r'\s+', r'_', unidecode(artist.casefold().replace(r'&', r'and')))
     artist = r'_' + re.sub(r'^the_(.*)$', r'\1_the', re.sub(r'[^\w_/]', r'', artist))
-    title = re.sub(r'\s+', r'_', unidecode(artist.casefold().replace(r'&', r'and')))
+    title = re.sub(r'\s+', r'_', unidecode(title.casefold().replace(r'&', r'and')))
     title = re.sub(r'[^\w_/]', r'', title) + r'_lyrics'
-    return
-    pass #TODO
+    return (r'https://www.lyricsmania.com/' + title + artist + r'.html')
 
 def _metroLyricsURL( artist, title ):
     artist = re.sub(r'\s+', r'-', re.sub(r'[^\w\s]', r'', unidecode(artist.casefold())))
