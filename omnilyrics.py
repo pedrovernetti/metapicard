@@ -590,9 +590,11 @@ class OmniLyrics( BaseAction ):
         lyrics = re.sub(r'(^|\n) ', r'\1', lyrics, flags=re.MULTILINE)
         lyrics = re.sub(r'\n *[.*-_#~] *\n', r'\n\n', lyrics, flags=re.MULTILINE)
         lyrics = re.sub(r'(\[\w+( +\w+)?\])', lambda x: x.group(1).casefold(), lyrics)
+        flagsIM = re.IGNORECASE | re.MULTILINE
+        wellKnownDumbMeta = re.compile(r'(^|\n) *\W* *(chorus|verse( [0-9]+\W*)?)[^\w\n]*', flagsIM)
+        lyrics = wellKnownDumbMeta.sub(r'\1[\2]', lyrics)
         wellKnownMeta1 = r'\[(.*solo|intro.*|outro|instru.*|.*instrumental)\]'
         wellKnownMeta2 = r'\[(.*solo|instru.*|.*instrumental)\]'
-        flagsIM = re.IGNORECASE | re.MULTILINE
         lyrics = re.sub((r'([^\n]\n)' + wellKnownMeta1), r'\1\n[\2]', lyrics, flags=flagsIM)
         lyrics = re.sub((wellKnownMeta2 + r'(\n[^\n])'), r'[\1]\n\2', lyrics, flags=flagsIM)
         lyrics = re.sub(r'(^|\n)[^\n]*https?://[^\n]*($|\n)', r'\n', lyrics, flags=flagsIM)
