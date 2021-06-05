@@ -21,7 +21,7 @@
 import re, time, requests
 from random import shuffle
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote as urlquote
 from unidecode import unidecode
 import iso639
 from langdetect import detect_langs as langdetect
@@ -37,7 +37,7 @@ PLUGIN_DESCRIPTION = 'Fetch lyrics from multiple sites via Google Custom Search 
                      '<a href="https://cse.google.com/cse/create/new">cse.google.com</a> ' \
                      'and get your own Google Custom Search API key at ' \
                      '<a href="https://developers.google.com/custom-search/v1/overview#api_key">developers.google.com</a>.'
-PLUGIN_VERSION = '0.3'
+PLUGIN_VERSION = '0.4'
 PLUGIN_API_VERSIONS = ['2.0', '2.1', '2.2', '2.3', '2.4', '2.5', '2.6']
 PLUGIN_LICENSE = 'GPLv3'
 PLUGIN_LICENSE_URL = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
@@ -325,7 +325,20 @@ def _vagalumeURL( artist, title ):
     return (r'https://www.vagalume.com.br/' + artist + r'/' + title + r'.html')
 
 def _lyricsComURL( artist, title ):
-    pass #TODO
+    artistURL = urlquote(re.sub(r'\s+', r'-', artist.strip()))
+    artistURL = r'https://www.lyrics.com/artist/' + artistURL
+    try: artistPage = requests.get(artistURL, headers=OmniLyrics.headers)
+    except: return None
+    if (not artistPage): return None
+    artistPage = BeautifulSoup(artistPage.content, r'lxml')
+    songs = artistPage.find_all(r'a')
+    if (not songs): return None
+    songs = [songs[i] for i in range(len(songs)-1, -1, -1) if (songs[i].get(r'href', r'').startswith(r'/lyric/'))]
+    title = re.sub(r'\W', r'', title.casefold())
+    for song in songs:
+        if (re.sub(r'\W', r'', song.get_text().casefold()).endswith(title)):
+            return (r'https://www.lyrics.com' + song[r'href'])
+    return None
 
 def _lyricsManiaURL( artist, title ):
     pass #TODO
@@ -455,8 +468,10 @@ class OmniLyrics( BaseAction ):
         page = self._request(lyricsURL, headers=self.headers)
         if (not page): return None
         page = BeautifulSoup(page.content, r'lxml')
+        lyrics = None
         for domain, scraper in self.scrapers.items():
-            if (domain in lyricsURL): return scraper(page, normArtist, normTitle)
+            if (domain in lyricsURL): lyrics = scraper(page, normArtist, normTitle)
+            return (None if (not lyrics) else lyrics)
         return None # no scraper available for this search result
 
     def fetchLyricsFrom( self, url ):
@@ -591,8 +606,8 @@ class OmniLyrics( BaseAction ):
         lyrics = re.sub(r'\n *[.*-_#~] *\n', r'\n\n', lyrics, flags=re.MULTILINE)
         lyrics = re.sub(r'(\[\w+( +\w+)?\])', lambda x: x.group(1).casefold(), lyrics)
         flagsIM = re.IGNORECASE | re.MULTILINE
-        wellKnownDumbMeta = re.compile(r'(^|\n) *\W* *(chorus|verse( [0-9]+\W*)?)[^\w\n]*', flagsIM)
-        lyrics = wellKnownDumbMeta.sub(r'\1[\2]', lyrics)
+        wellKnownDumbMeta = re.compile(r'(^|\n)[^\w\[]*(chorus|verse( [0-9]+\W*)?)[^\w\]\n]*', flagsIM)
+        lyrics = wellKnownDumbMeta.sub(r'\n\1[\2]', lyrics)
         wellKnownMeta1 = r'\[(.*solo|intro.*|outro|instru.*|.*instrumental)\]'
         wellKnownMeta2 = r'\[(.*solo|instru.*|.*instrumental)\]'
         lyrics = re.sub((r'([^\n]\n)' + wellKnownMeta1), r'\1\n[\2]', lyrics, flags=flagsIM)
