@@ -290,14 +290,15 @@ def _geniusURL( artist, title ):
 def _aZLyricsURL( artist, title ):
     artist = re.sub(r'\W+', r'', unidecode(artist.casefold()))
     title = re.sub(r'\W+', r'', unidecode(title.casefold()))
-    return (r'https://www.azlyrics.com/lyrics/' + artist[0] + r'/' + artist + r'/' + title + '.html')
+    return (r'https://www.azlyrics.com/lyrics/' + artist + r'/' + title + '.html')
 
 def _lyricsModeURL( artist, title ):
     artist = re.sub(r'[^a-z0-9\s_-]+', r'', artist.upper().casefold())
     title = re.sub(r'[^a-z0-9\s_-]+', r'', title.upper().casefold())
     artist = re.sub(r'[\s_-]+', r'_', artist).strip(r'_')
     title = re.sub(r'[\s_-]+', r'_', title).strip(r'_')
-    return (r'https://www.lyricsmode.com/lyrics/' + artist[0] + r'/' + artist + r'/' + title + r'.html')
+    initial = artist[0] if (artist[0] in r'abcdefghijklmnopqrstuvwxyz') else r'0-9'
+    return (r'https://www.lyricsmode.com/lyrics/' + initial + r'/' + artist + r'/' + title + r'.html')
 
 def _vagalumeURL( artist, title ):
     artist = re.sub(r'\W+', r'-', unidecode(artist.casefold())).strip(r'-')
@@ -335,8 +336,8 @@ class OmniLyrics( BaseAction ):
                  r'lyricsmint':     _lyricsMINTScraper,
                  r'glamsham':       _glamShamScraper, }
 
-    _autoURLS = [ _letrasURL, _geniusURL, _aZLyricsURL, _lyricsModeURL,
-                  _vagalumeURL, _lyricsComURL, _lyricsManiaURL, _metroLyricsURL ]
+    _autoURLS = [ _letrasURL, _geniusURL, _aZLyricsURL, _lyricsModeURL, _vagalumeURL,
+                  _lyricsComURL, _lyricsManiaURL, _metroLyricsURL ]
 
     validGCSLanguages = { r'ar', r'bg', r'ca', r'cs', r'da', r'de', r'el',
                           r'en', r'es', r'et', r'fi', r'fr', r'hr', r'hu',
@@ -348,19 +349,12 @@ class OmniLyrics( BaseAction ):
                 r'Referer': r'https://www.google.com/',
                 r'Accept': r'text/html,application/xhtml+xml', }
 
-    requestFailureHistory = {}
-
     def __init__( self ):
         super().__init__()
         if (not runningAsPlugin):
-            self.gcsAPIKey = environ[r'GCS_API_KEY']
-            self.gcsEngineID = environ[r'GCS_ENGINE_ID']
-            if (type(self.gcsAPIKey) != str):
-                stderr.write('GCS_API_KEY not set\n')
-                sysexit(1)
-            if (type(self.gcsEngineID) != str):
-                stderr.write('GCS_ENGINE_ID not set\n')
-                sysexit(1)
+            self.gcsAPIKey = environ.get(r'GCS_API_KEY', None)
+            self.gcsEngineID = environ.get(r'GCS_ENGINE_ID', None)
+        self.requestFailureHistory = {}
 
     def _request( self, url, params=None, headers=None ):
         netloc = urlparse(url).netloc
@@ -408,7 +402,7 @@ class OmniLyrics( BaseAction ):
         if (runningAsPlugin):
             self.gcsAPIKey = config.setting[r'gcsAPIKey']
             self.gcsEngineID = config.setting[r'gcsEngineID']
-            if ((type(self.gcsAPIKey) != str) or (type(self.gcsEngineID) != str)): return None
+        if ((type(self.gcsAPIKey) != str) or (type(self.gcsEngineID) != str)): return None
         customSearchURL = r'https://www.googleapis.com/customsearch/v1/siterestrict'
         customSearchParameters = {r'key': self.gcsAPIKey, r'cx': self.gcsEngineID, r'q': song,}
         if (language != r'und'):
@@ -453,12 +447,14 @@ class OmniLyrics( BaseAction ):
         return r'' # no results
 
     def _fetchDirectly( self, artist, title, language ):
-        urls = [generateURL(artist, title) for generateURL in self._autoURLS]
-        urls = [url for url in urls if ((type(url) == str) and len(url))]
+        urls = self._autoURLS
         shuffle(urls)
         normArtist = re.sub(r'[^a-z0-9]', r'', artist.casefold().replace(r'&', r'and'))
         normTitle = re.sub(r'[^a-z0-9]', r'', title.casefold())
         for url in urls:
+            url = url(artist, title)
+            if (not ((type(url) == str) and len(url))): continue
+            print(url)
             lyrics = self._lyrics(url, normArtist, normTitle)
             if (lyrics):
                 if (not runningAsPlugin):
@@ -617,8 +613,8 @@ class OmniLyrics( BaseAction ):
             )
         else:
             self.tagger.window.set_statusbar_message(
-                N_('Could not update lyrics for "%(filename)s".'),
-                {'filename': file.filename}
+                N_('Could not fetch/update lyrics for "%(filename)s".'),
+                {'filename': re.sub(r'^.*/', r'', file.filename)}
             )
 
     def processTrack( self, album, metadata, track, release ):
