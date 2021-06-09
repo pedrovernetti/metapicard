@@ -475,10 +475,18 @@ class OmniLyrics( BaseAction ):
         lyrics = None
         for domain, scraper in self.scrapers.items():
             if (domain in lyricsURL): lyrics = scraper(page, normArtist, normTitle)
-            return (None if (not lyrics) else lyrics)
+            if (lyrics): return lyrics
         return None # no scraper available for this search result
 
     def fetchLyricsFrom( self, url ):
+        if (not runningAsPlugin):
+            supportedSite = False
+            netloc = urlparse(url).netloc
+            for domain, _ in self.scrapers.items():
+                if (domain in netloc): supportedSite = True
+            if (not supportedSite):
+                print(r'"' + netloc + r'" not supported')
+                return None
         return self._lyrics(url, None, None)
 
     def _fetchThroughGCS( self, artist, title, language ):
@@ -502,20 +510,27 @@ class OmniLyrics( BaseAction ):
                 return lyrics
         return r'' # no results
 
-    def _fetchDirectly( self, artist, title, language ):
-        urls = self._autoURLS
-        shuffle(urls)
+    def _directFetchingLoop( self, urlRecipes, artist, title, language ):
         normArtist = re.sub(r'[^a-z0-9]', r'', artist.casefold().replace(r'&', r'and'))
         normTitle = re.sub(r'[^a-z0-9]', r'', title.casefold())
-        for url in urls:
-            url = url(artist, title)
+        for urlRecipe in urlRecipes:
+            url = urlRecipe(artist, title)
             if (not ((type(url) == str) and len(url))): continue
             lyrics = self._lyrics(url, normArtist, normTitle)
             if (lyrics):
                 if (not runningAsPlugin):
                     print('Lyrics for "' + title + '" fetched from ' + url + '\n')
                 return lyrics
-        return r''
+        return None
+
+    def _fetchDirectly( self, artist, title, language ):
+        urlRecipes = self._autoURLS
+        shuffle(urlRecipes)
+        lyrics = self._directFetchingLoop(urlRecipes, artist, title, language)
+        if ((not lyrics) and re.match(r'^.*\(.*\)\s*$', title)):
+            title = re.sub(r'\s*\(.*\)\s*$', r'', title)
+            lyrics = self._directFetchingLoop(urlRecipes, artist, title, language)
+        return lyrics
 
     def fetchLyrics( self, artist, title, language ):
         if (not artist):
@@ -600,7 +615,7 @@ class OmniLyrics( BaseAction ):
 
     def lyricsMadeTidy( self, lyrics ):
         lyrics = re.sub(r'["ˮ“”‟❝❞＂]', r'"', re.sub(r'[´`’ʼʹʻʽˈˊʹ՚᾽᾿‘‛′‵＇]', "'", lyrics))
-        lyrics = re.sub('[‐‑֊־﹣⁃\u1806]', r'-', lyrics)
+        lyrics = re.sub('[‐‑֊־﹣⁃\u1806]', r'-', lyrics).replace(r'…', r'...')
         horizontalSpace = r'[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]'
         lyrics = re.sub((horizontalSpace + r'+'), r' ', lyrics)
         lyrics = re.sub(r'(\r+\n|\r*\n\r+|\u0085)', r'\n', lyrics, flags=re.MULTILINE)
