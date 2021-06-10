@@ -110,6 +110,23 @@ def _geniusScraper( page, normArtist, normTitle ):
     lyrics = _geniusScraperMethod1(page) or _geniusScraperMethod2(page)
     return lyrics
 
+def _musixmatchScraper( page, normArtist, normTitle ):
+    title = page.select(r'h1[class*="mxm-track-title__track"]') if normTitle else None
+    if (title):
+        for element in title[0].find_all(r'small'): element.clear()
+        title = re.sub(r'[^a-z0-9]', r'', title[0].get_text().casefold())
+        if (title != normTitle): return None
+    artist = page.select(r'a[class*="mxm-track-title__artist"]') if normArtist else None
+    if (artist):
+        artist = re.sub(r'[^a-z0-9]', r'', artist[0].get_text().casefold())
+        if (artist != normArtist): return None
+    extract = page.find_all(r'div', {r'class': r'mxm-lyrics'})
+    if (not extract): return None
+    extract = extract[0].find_all(r'span', {r'class': None, r'id': None})
+    if ((not extract) or (len(extract) < 2)): return None
+    for script in extract[1].find_all(r'script'): script.replace_with('\n')
+    return extract[1].get_text()
+
 def _aZLyricsScraper( page, normArtist, normTitle ):
     title = page.find_all(r'h1') if normTitle else None
     if (title):
@@ -306,6 +323,11 @@ def _geniusURL( artist, title ):
     title = re.sub(r'[\s-]+', r'-', re.sub(r'[^\w\s-]+', r'', title)).strip(r'-')
     return (r'https://genius.com/' + artist + r'-' + title + r'-lyrics')
 
+def _musixmatchURL( artist, title ):
+    artist = re.sub(r'[^\w-]', r'', re.sub('[\s.!&()\[\]\x27-]+', r'-', artist).strip(r'-'))
+    title = re.sub(r'[^\w-]', r'', re.sub('[\s.!&()\[\]\x27-]+', r'-', title).strip(r'-'))
+    return (r'https://www.musixmatch.com/lyrics/' + artist + r'/' + title)
+
 def _aZLyricsURL( artist, title ):
     artist = re.sub(r'\W+', r'', unidecode(artist.casefold()))
     title = re.sub(r'\W+', r'', unidecode(title.casefold()))
@@ -377,6 +399,7 @@ class OmniLyrics( BaseAction ):
 
     scrapers = { r'letras.mus':     _letrasScraper,
                  r'genius':         _geniusScraper,
+                 r'musixmatch':     _musixmatchScraper,
                  r'azlyrics':       _aZLyricsScraper,
                  r'lyricsmode':     _lyricsModeScraper,
                  r'vagalume':       _vagalumeScraper,
@@ -390,8 +413,8 @@ class OmniLyrics( BaseAction ):
                  r'lyricsmint':     _lyricsMINTScraper,
                  r'glamsham':       _glamShamScraper, }
 
-    _autoURLS = [ _letrasURL, _geniusURL, _aZLyricsURL, _lyricsModeURL, _vagalumeURL,
-                  _lyricsComURL, _lyricsManiaURL, _metroLyricsURL, _darkLyricsURL ]
+    _autoURLS = [ _letrasURL, _geniusURL, _musixmatchURL, _aZLyricsURL, _lyricsModeURL,
+                  _vagalumeURL, _lyricsComURL, _lyricsManiaURL, _metroLyricsURL, _darkLyricsURL ]
 
     validGCSLanguages = { r'ar', r'bg', r'ca', r'cs', r'da', r'de', r'el',
                           r'en', r'es', r'et', r'fi', r'fr', r'hr', r'hu',
