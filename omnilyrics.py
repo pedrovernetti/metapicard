@@ -124,7 +124,8 @@ def _musixmatchScraper( page, normArtist, normTitle ):
     for garbage in page.select(r'div[class*="review-changes"]'): garbage.clear()
     extract = page.find_all(r'div', {r'class': r'mxm-lyrics'})
     if (not extract): return None
-    if (extract[0].find_all(r'span', {r'class': r'lyrics__content__error'})):
+    problematic = re.compile(r'^lyrics__content__(error|warning)')
+    if (extract[0].find_all(r'span', {r'class': problematic})):
         extract = extract[0].find_all(r'span', {r'class': None, r'id': None})
         if ((not extract) or (len(extract) < 2)): return None
         return extract[1].get_text().strip()
@@ -300,7 +301,7 @@ def _glamShamScraper( page, normArtist, normTitle ):
 
 
 def _letrasURL( artist, title ):
-    artistURL = re.sub(r'[^\w\s/-]', r'', unidecode(artist.casefold())).replace(r'&', r'and')
+    artistURL = re.sub(r'[^\w\s/-]', r'', unidecode(artist.casefold())).replace(r'&', r'e')
     artistURL = r'https://www.letras.mus.br/' + re.sub(r'[\s/-]+', r'-', artistURL).strip(r'-') + r'/'
     try: artistPage = requests.get(artistURL, headers=OmniLyrics.headers)
     except: return None
