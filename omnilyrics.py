@@ -120,12 +120,18 @@ def _musixmatchScraper( page, normArtist, normTitle ):
     if (artist):
         artist = re.sub(r'[^a-z0-9]', r'', artist[0].get_text().casefold())
         if (artist != normArtist): return None
+    for script in page.find_all(r'script'): script.replace_with('\n')
+    for garbage in page.select(r'div[class*="review-changes"]'): garbage.clear()
     extract = page.find_all(r'div', {r'class': r'mxm-lyrics'})
     if (not extract): return None
-    extract = extract[0].find_all(r'span', {r'class': None, r'id': None})
-    if ((not extract) or (len(extract) < 2)): return None
-    for script in extract[1].find_all(r'script'): script.replace_with('\n')
-    return extract[1].get_text()
+    if (extract[0].find_all(r'span', {r'class': r'lyrics__content__error'})):
+        extract = extract[0].find_all(r'span', {r'class': None, r'id': None})
+        if ((not extract) or (len(extract) < 2)): return None
+        return extract[1].get_text().strip()
+    else:
+        extract = extract[0].select(r'p[class*="mxm-lyrics__content"]')
+        if (not extract): return None
+        return extract[0].get_text().strip()
 
 def _aZLyricsScraper( page, normArtist, normTitle ):
     title = page.find_all(r'h1') if normTitle else None
@@ -807,4 +813,4 @@ else:
     elif (len(argv) == 4): lyrics = omnilyrics.fetchLyrics(argv[-3], argv[-2], argv[-1])
     elif (len(argv) == 3): lyrics = omnilyrics.fetchLyrics(argv[-2], argv[-1], r'und')
     else: print("Usage: python3 '" + argv[0] + "' ARTIST TITLE [LANGUAGE]")
-    if (len(lyrics)): print(omnilyrics.lyricsMadeTidy(lyrics))
+    if (lyrics): print(omnilyrics.lyricsMadeTidy(lyrics))
