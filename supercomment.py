@@ -152,6 +152,8 @@ class SuperComment( BaseAction ):
                 if (not company): company = metadata[tagName].strip()
                 labelTags += [tagName]
         for tagName in labelTags: metadata.pop(tagName, None)
+        catalogNumber = metadata.get(r'catalognumber', r'').strip()
+        metadata.pop(r'catalognumber', None)
         if (self._isIndependent(company, metadata)): return r'independent;'
         company = [entry.strip() for entry in company.split(r';')]
         if (len(company) == 1): company = [entry.strip() for entry in company[0].split(r' / ')]
@@ -159,8 +161,6 @@ class SuperComment( BaseAction ):
         for i, entry in enumerate(company):
             if (self._isIndependent(entry, metadata)): company[i] = r'independent';
         company = re.sub(r'([^\s])/([^\s])', r'\1 / \2', r' / '.join(company)).strip()
-        catalogNumber = metadata.get(r'catalognumber', r'').strip()
-        metadata.pop(r'catalognumber', None)
         catalogNumber = [entry.strip() for entry in catalogNumber.split(r';')]
         if (len(catalogNumber) == 1):
             catalogNumber = [entry.strip() for entry in catalogNumber[0].split(r' / ')]
