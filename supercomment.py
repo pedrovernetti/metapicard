@@ -152,12 +152,21 @@ class SuperComment( BaseAction ):
                 if (not company): company = metadata[tagName].strip()
                 labelTags += [tagName]
         for tagName in labelTags: metadata.pop(tagName, None)
+        if (self._isIndependent(company, metadata)): return r'independent;'
+        company = [entry.strip() for entry in company.split(r';')]
+        if (len(company) == 1): company = [entry.strip() for entry in company[0].split(r' / ')]
+        company = [entry for entry in company if (not re.match(r'^\s*$', entry))]
+        for i, entry in enumerate(company):
+            if (self._isIndependent(entry, metadata)): company[i] = r'independent';
+        company = re.sub(r'([^\s])/([^\s])', r'\1 / \2', r' / '.join(company)).strip()
         catalogNumber = metadata.get(r'catalognumber', r'').strip()
         metadata.pop(r'catalognumber', None)
-        if (self._isIndependent(company, metadata)): return r'independent;'
-        if (re.match(r'^\W*(n(one|ull|\W*a)\W*)?$', catalogNumber.casefold())): catalogNumber = r''
-        company = re.sub(r'([^\s])/([^\s])', r'\1 / \2', re.sub(r'\s*;\s*', r' / ', company))
-        catalogNumber = re.sub(r'\s*;\s*', r' / ', catalogNumber)
+        catalogNumber = [entry.strip() for entry in catalogNumber.split(r';')]
+        if (len(catalogNumber) == 1):
+            catalogNumber = [entry.strip() for entry in catalogNumber[0].split(r' / ')]
+        noneCN = re.compile(r'^\W*(n(one|ull|\W*a)\W*)?$', re.IGNORECASE)
+        catalogNumber = [entry for entry in catalogNumber if (not noneCN.match(entry))]
+        catalogNumber = re.sub(r'([^\s])/([^\s])', r'\1 / \2', r' / '.join(catalogNumber)).strip()
         if (not company): return r'?;'
         elif (len(catalogNumber)): return (company + r' (' + catalogNumber + r');')
         else: return (company + r';')
@@ -269,6 +278,17 @@ class SuperComment( BaseAction ):
             else: finalFormatTag += (str(item[1]) + r'x ' + item[0] + r' + ')
         return finalFormatTag[:-3]
 
+    def _oneKind( self, currentKind, currentSubkind ):
+        if (type(currentKind) == list):
+            kinds = currentKind
+        else:
+            separator = r'/' if (r'/' in currentKind) else r';'
+            kinds = [kind.strip() for kind in currentKind.split(separator)]
+        replacements = {r'street': r'mixtape', r'spoken': r'spokenword'}
+        kinds = [replacements.get(kind, kind) for kind in kinds if (kind not in currentSubkind)]
+        kinds = [kind for kind in kinds if (kind not in currentSubkind)]
+        return (kinds[0], currentSubkind)
+
     def _checkedKind( self, currentKind, metadata, album ):
         if (currentKind not in {r'album', r'single', r'ep', r'', r'other'}): return currentKind
         if (int(metadata.get(r'totaldiscs', 1)) > 1):
@@ -328,6 +348,8 @@ class SuperComment( BaseAction ):
         elif ((subkind == r'street') or (r'mixtape' in subkind)): subkind = r'mixtape'
         elif (r'spoken' in subkind): subkind = r'spokenword'
         metadata.pop(r'compilation', None)
+        if ((type(kind) == list) or (r';' in kind) or (r'/' in kind)):
+            kind, subkind = self._oneKind(kind, subkind)
         albumTitle = metadata.get(r'album', metadata.get(r'~releasegroup', r''))
         metadata.pop(r'~releasegroup', None)
         if (not kind):
