@@ -72,7 +72,7 @@ def _letrasScraper( page, normArtist, normTitle ):
             artist = re.sub(r'\W', r'', unidecode(artist[0].get_text().casefold()))
             if (artist != normArtist): return None
         if (title):
-            title = unidecode(title[0].get_text().replace(r'&', r'and').casefold())
+            title = unidecode(title[0].get_text().casefold())
             if (re.sub(r'\W', r'', title) != normTitle): return None
     all_extracts = page.select(r'div[class*="cnt-letra"]')
     if (not all_extracts): return None
@@ -487,6 +487,7 @@ class OmniLyrics( BaseAction ):
             self.gcsAPIKey = config.setting[r'gcsAPIKey']
             self.gcsEngineID = config.setting[r'gcsEngineID']
         if ((type(self.gcsAPIKey) != str) or (type(self.gcsEngineID) != str)): return None
+        if (not (self.gcsAPIKey and self.gcsEngineID)): return None
         customSearchURL = r'https://www.googleapis.com/customsearch/v1/siterestrict'
         customSearchParameters = {r'key': self.gcsAPIKey, r'cx': self.gcsEngineID, r'q': song,}
         if (language != r'und'):
@@ -551,6 +552,7 @@ class OmniLyrics( BaseAction ):
                 if (not runningAsPlugin):
                     print('Lyrics for "' + title + '" fetched from ' + url + '\n')
                 return lyrics
+            print(url, r' failed')
         return None
 
     def _fetchDirectly( self, artist, title, language ):
@@ -744,8 +746,8 @@ if (runningAsPlugin):
         TITLE = PLUGIN_NAME
         PARENT = r'tags' # r'plugins' ?
 
-        options = [TextOption(r'setting', r'gcsAPIKey', r' '),
-                   TextOption(r'setting', r'gcsEngineID', r' '),
+        options = [TextOption(r'setting', r'gcsAPIKey', r''),
+                   TextOption(r'setting', r'gcsEngineID', r''),
                    BoolOption(r'setting', r'autoFetch', False)]
 
         def __init__( self, parent=None ):

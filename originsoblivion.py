@@ -61,7 +61,9 @@ class OriginsOblivion( BaseAction ):
                         r'ripperversion', r'rippersoftware', r'ripperver', r'codecver', r'encoderver',
                         r'softwareversion', r'softwarever', r'encodingtoolversion', r'enctool',
                         r'enctoolversion', r'enctoolver', r'encodingtoolver', r'encodingsoftwarever',
-                        r'encodingsoftwareversion', r'cddcids', r'cddbid', }
+                        r'encodingsoftwareversion', r'cddcids', r'cddbid', r'encodinghistory',
+                        r'codinghistory', r'originator', r'origreference', r'origtime',
+                        r'timereference', r'origdate', }
 
     _mbidTargets =    { r'musicbrainz_workid', r'musicbrainz_discid', r'musicbrainz_releasegroupid',
                         r'musicbrainz_albumartistid', r'musicbrainz_recordingid',

@@ -172,7 +172,8 @@ class AutoMapper():
                  r'musicvibe': r'mood', r'classification': r'_rating', r'diskid': r'discid',
                  r'origdate': r'originaldate', r'origtime': r'originaldate', r'keysignature': r'key',
                  r'keysig': r'key', r'retaildate': r'date', r'sourceid': r'discid', r'tdat': r'date',
-                 r'ensemble': r'artist', r'name': r'title', r'catalog': r'catalognumber', }
+                 r'ensemble': r'artist', r'name': r'title', r'catalog': r'catalognumber',
+                 r'originator': r'encodedby', }
 
     _splitfulMapping = { r'trkn':       (r'tracknumber', r'totaltracks'),
                          r'trck':       (r'tracknumber', r'totaltracks'),
