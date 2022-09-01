@@ -11,7 +11,7 @@
 #
 # Author: Pedro Vernetti G.
 # Name: No Bonus
-# Description: MusicBrainz Picard plugin to purge encoding-related and software-specific tags
+# Description: MusicBrainz Picard plugin to removes things like '(bonus)' from title/album tags
 #
 # #  In order to have this plugin working (if it is currently not), place it at:
 #    ~/.config/MusicBrainz/Picard/plugins
