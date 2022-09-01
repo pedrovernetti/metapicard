@@ -30,15 +30,12 @@ PLUGIN_LICENSE = 'GPLv3'
 PLUGIN_LICENSE_URL = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
 
 from PyQt5 import QtWidgets
-from picard.config import BoolOption
 from picard import config, log
-from picard.file import File, register_file_post_addition_to_track_processor, register_file_post_load_processor
-from picard.metadata import register_track_metadata_processor
+from picard.file import File, register_file_post_addition_to_track_processor
 from picard.plugin import PluginPriority
 from picard.track import Track
 from picard.album import Album
-from picard.ui.itemviews import BaseAction, register_file_action, register_track_action, register_album_action
-from picard.ui.options import OptionsPage, register_options_page
+from picard.ui.itemviews import BaseAction, register_file_action, register_album_action
 
 
 
