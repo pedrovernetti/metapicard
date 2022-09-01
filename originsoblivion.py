@@ -18,6 +18,7 @@
 # =============================================================================================
 
 import re
+from functools import partial
 
 
 
@@ -36,8 +37,10 @@ from picard.file import File, register_file_post_addition_to_track_processor, re
 from picard.metadata import register_track_metadata_processor
 from picard.plugin import PluginPriority
 from picard.track import Track
-from picard.ui.itemviews import BaseAction, register_file_action, register_track_action
+from picard.album import Album
+from picard.ui.itemviews import BaseAction, register_file_action, register_track_action, register_album_action
 from picard.ui.options import OptionsPage, register_options_page
+from picard.util import thread
 
 
 
@@ -106,6 +109,9 @@ class OriginsOblivion( BaseAction ):
                     toBeDeleted += [key]
         for tagName in toBeDeleted: metadata.pop(tagName, None)
 
+    def _finish( self, file, result=None, error=None ):
+        pass
+
     def processFile( self, track, file ):
         self.process(None, file.metadata, track, None)
 
@@ -118,6 +124,22 @@ class OriginsOblivion( BaseAction ):
                 for f in obj.linked_files: self.process(None, f.metadata, obj, None)
             elif (isinstance(obj, File)):
                 self.process(None, obj.metadata, None, None)
+
+
+
+class OriginsOblivionForAlbums( OriginsOblivion ):
+
+    NAME = "Purge Encoding/Software-Specific Tags"
+
+    def __init__( self ):
+        super().__init__()
+
+    def callback( self, objs ):
+        for obj in objs:
+            if (isinstance(obj, Album)):
+                for track in obj.tracks:
+                    for f in track.linked_files:
+                        thread.run_task(partial(super().process, None, f.metadata, obj, None, True), partial(super()._finish, f))
 
 
 
@@ -185,4 +207,5 @@ register_file_post_addition_to_track_processor(OriginsOblivion().processFile, pr
 register_file_post_load_processor(OriginsOblivion().processFileOnLoad)
 # register_track_action(OriginsOblivion())
 # register_track_metadata_processor(OriginsOblivion().process)
+register_album_action(OriginsOblivionForAlbums())
 register_options_page(OriginsOblivionOptionsPage)

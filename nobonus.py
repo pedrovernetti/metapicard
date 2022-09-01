@@ -18,6 +18,7 @@
 # =============================================================================================
 
 import re
+from functools import partial
 
 
 
@@ -36,6 +37,7 @@ from picard.plugin import PluginPriority
 from picard.track import Track
 from picard.album import Album
 from picard.ui.itemviews import BaseAction, register_file_action, register_album_action
+from picard.util import thread
 
 
 
@@ -68,6 +70,9 @@ class NoBonus( BaseAction ):
         metadata[r'title'] = self._emptyPar.sub(r'', title)
         metadata[r'titlesort'] = self._emptyPar.sub(r'', titlesort)
         metadata[r'album'] = self._emptyPar.sub(r'', album)
+
+    def _finish( self, file, result=None, error=None ):
+        pass
 
     def processFile( self, track, file ):
         self.process(None, file.metadata, track, None)

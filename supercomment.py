@@ -19,6 +19,7 @@
 
 import re
 from time import time
+from functools import partial
 
 
 
@@ -36,8 +37,10 @@ from picard import config, log
 from picard.file import File, register_file_post_addition_to_track_processor
 from picard.metadata import register_track_metadata_processor
 from picard.track import Track
-from picard.ui.itemviews import BaseAction, register_file_action, register_track_action
+from picard.album import Album
+from picard.ui.itemviews import BaseAction, register_file_action, register_track_action, register_album_action
 from picard.ui.options import OptionsPage, register_options_page
+from picard.util import thread
 
 
 
@@ -412,10 +415,10 @@ class SuperComment( BaseAction ):
             barcode = metadata.get(r'barcode', r'')
             if (len(barcode)): comment += (r' barcode: ' + re.sub(r'[^0-9]', r'', barcode) + r',')
         metadata.pop(r'barcode', None)
-        # if (config.setting[r'includeISRC']):
-            # isrc = metadata.get(r'isrc', r'')
-            # if (len(isrc)): comment += (r' ISRC: ' + re.sub(r'[^0-9]', r'', isrc) + r',')
-        # metadata.pop(r'isrc', None)
+        if (config.setting[r'includeISRC']):
+            isrc = metadata.get(r'isrc', r'')
+            if (len(isrc)): comment += (r' ISRC: ' + re.sub(r'[^0-9]', r'', isrc) + r',')
+        metadata.pop(r'isrc', None)
         if (config.setting[r'includeASIN']):
             asin = metadata.get(r'asin', r'').upper()
             if (len(asin)): comment += (r' ASIN: ' + re.sub(r'[^0-9A-Z]', r'', asin) + r',')
@@ -437,6 +440,9 @@ class SuperComment( BaseAction ):
         metadata.pop(r'Comment:', None)
         metadata[r'comment'] = re.sub(r'[,;]$', r'', re.sub(r'\s+', r' ', comment.strip()))
 
+    def _finish( self, file, result=None, error=None ):
+        pass
+
     def processFile( self, track, file ):
         self.process(None, file.metadata, track, None)
 
@@ -446,6 +452,22 @@ class SuperComment( BaseAction ):
                 for f in obj.linked_files: self.process(None, f.metadata, obj, None)
             elif (isinstance(obj, File)):
                 self.process(None, obj.metadata, None, None)
+
+
+
+class SupperCommentForAlbums( SuperComment ):
+
+    NAME = "Merge Release Informations into Comments"
+
+    def __init__( self ):
+        super().__init__()
+
+    def callback( self, objs ):
+        for obj in objs:
+            if (isinstance(obj, Album)):
+                for track in obj.tracks:
+                    for f in track.linked_files:
+                        thread.run_task(partial(super().process, None, f.metadata, obj, None, True), partial(super()._finish, f))
 
 
 
@@ -520,4 +542,5 @@ register_file_action(SuperComment())
 register_file_post_addition_to_track_processor(SuperComment().processFile)
 # register_track_action(SuperComment())
 # register_track_metadata_processor(SuperComment().process)
+register_album_action(SupperCommentForAlbums())
 register_options_page(SuperCommentOptionsPage)
