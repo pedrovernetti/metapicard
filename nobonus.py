@@ -98,7 +98,7 @@ class NoBonusForAlbums( NoBonus ):
             if (isinstance(obj, Album)):
                 for track in obj.tracks:
                     for f in track.linked_files:
-                        thread.run_task(partial(super().process, None, f.metadata, obj, None, True),
+                        thread.run_task(partial(super().process, None, f.metadata, obj, None),
                                 partial(super()._finish, f))
 
 
