@@ -52,7 +52,8 @@ if (not (__name__ == "__main__")):
     from picard.metadata import register_track_metadata_processor
     from picard.plugin import PluginPriority
     from picard.track import Track
-    from picard.ui.itemviews import BaseAction, register_file_action, register_track_action
+    from picard.album import Album
+    from picard.ui.itemviews import BaseAction, register_file_action, register_track_action, register_album_action
     from picard.ui.options import OptionsPage, register_options_page
     from picard.util import thread
 else:
@@ -126,9 +127,15 @@ def _musixmatchScraper( page, normArtist, normTitle ):
     if (not extract): return None
     problematic = re.compile(r'^lyrics__content__(error|warning)')
     if (extract[0].find_all(r'span', {r'class': problematic})):
-        extract = extract[0].find_all(r'span', {r'class': None, r'id': None})
-        if ((not extract) or (len(extract) < 2)): return None
-        return extract[1].get_text().strip()
+        lyrics = extract[0].find_all(r'span', {r'class': None, r'id': None})
+        if ((not lyrics) or (len(lyrics) < 2)): return None
+        lyrics = lyrics[1].get_text()
+        if (re.sub(r'\W+', r'', lyrics.casefold()) == "addtranslation"):
+            lyrics = extract[1].find_all(r'span', {r'class': problematic})
+            if (not lyrics): return None
+            lyrics = lyrics[0].get_text()
+            if ((not lyrics) or (len(lyrics) < 2)): return None
+        return lyrics.strip()
     else:
         extract = extract[0].select(r'p[class*="mxm-lyrics__content"]')
         if (not extract): return None
@@ -713,17 +720,18 @@ class OmniLyrics( BaseAction ):
         if not error:
             self.tagger.window.set_statusbar_message(
                 N_('Lyrics for "%(filename)s" successfully fetched/updated.'),
-                {'filename': re.sub(r'^.*/', r'', file.filename)}
+                {r'filename': re.sub(r'^.*/', r'', file.filename)}
             )
         else:
             self.tagger.window.set_statusbar_message(
                 N_('Could not fetch/update lyrics for "%(filename)s".'),
-                {'filename': re.sub(r'^.*/', r'', file.filename)}
+                {r'filename': re.sub(r'^.*/', r'', file.filename)}
             )
 
     def processTrack( self, album, metadata, track, release ):
-        for f in track.linked_files:
-            thread.run_task(partial(self.process, album, metadata, track, release, False), partial(self._finish, f))
+        if (track.is_linked()):
+            for f in track.linked_files:
+                thread.run_task(partial(self.process, album, f.metadata, track, release, False), partial(self._finish, f))
 
     def processFile( self, track, file ):
         thread.run_task(partial(self.process, None, file.metadata, track, None, False), partial(self._finish, file))
@@ -739,6 +747,22 @@ class OmniLyrics( BaseAction ):
 
 
 if (runningAsPlugin):
+
+    class OmniLyricsForAlbums( OmniLyrics ):
+
+        NAME = "Fetch/Update Lyrics"
+
+        def __init__( self ):
+            super().__init__()
+
+        def callback( self, objs ):
+            for obj in objs:
+                if (isinstance(obj, Album)):
+                    for track in obj.tracks:
+                        for f in track.linked_files:
+                            thread.run_task(partial(super().process, None, f.metadata, obj, None, True), partial(super()._finish, f))
+
+
 
     class OmniLyricsOptionsPage( OptionsPage ):
 
@@ -803,6 +827,7 @@ if (runningAsPlugin):
     register_file_post_addition_to_track_processor(OmniLyrics().processFile, priority=PluginPriority.LOW)
     # register_track_action(OmniLyrics())
     # register_track_metadata_processor(OmniLyrics().processTrack, priority=PluginPriority.LOW)
+    register_album_action(OmniLyricsForAlbums())
     register_options_page(OmniLyricsOptionsPage)
 
 
