@@ -173,7 +173,8 @@ class AutoMapper():
                  r'origdate': r'originaldate', r'origtime': r'originaldate', r'keysignature': r'key',
                  r'keysig': r'key', r'retaildate': r'date', r'sourceid': r'discid', r'tdat': r'date',
                  r'ensemble': r'artist', r'name': r'title', r'catalog': r'catalognumber',
-                 r'originator': r'encodedby', }
+                 r'originator': r'encodedby', r'discogs_artist_name': r'artist', r'discogs_date': r'date',
+                 r'discogs_catalog': r'catalognumber', r'discogs_country': r'releasecountry', }
 
     _splitfulMapping = { r'trkn':       (r'tracknumber', r'totaltracks'),
                          r'trck':       (r'tracknumber', r'totaltracks'),
@@ -233,7 +234,7 @@ class AutoMapper():
         toBeCreated = {}
         toBeKept = []
         keptTags = config.setting[r'preserved_tags']
-        for key in metadata:
+        for key, _ in list(metadata.items()):
             if (key in self._standardKeys): continue
             normkey = re.sub(r'[^\w_]', r'', re.sub(r'[\s:/_-]+', r'_', key.casefold()))
             normkey = re.sub(r'^\W*(wm|txxx|((com\W*)?apple\W*)?itunes|lastfm)\W*', r'', normkey)
@@ -258,7 +259,6 @@ class AutoMapper():
         self._mapLyrics(metadata, toBeDeleted, (r'lyrics' in keptTags), toBeKept)
         for tagName, value in toBeCreated.items(): metadata[tagName] = value
         if (config.setting[r'purgeUnmapped']):
-            toBeDeleted = []
             for tagName in metadata:
                 if (tagName not in self._standardKeys): toBeDeleted += [tagName]
         if (keptTags and f and config.setting[r'clear_existing_tags']):

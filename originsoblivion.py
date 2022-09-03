@@ -91,6 +91,9 @@ class OriginsOblivion( BaseAction ):
             normkey = re.sub(r'[^\w_]', r'', re.sub(r'[\s:/_-]+', r'_', key.casefold()))
             normkey = re.sub(r'^\W*(txxx\W*)?(.+)\W$', r'\2', normkey)
             if ((config.setting[r'purgeMBIDs'] and (normkey in self._mbidTargets)) or
+                (config.setting[r'purgeTrackMBID'] and (normkey == r'musicbrainz_trackid')) or
+                (config.setting[r'purgeReleaseMBID'] and (normkey == r'musicbrainz_releaseid')) or
+                (config.setting[r'purgeDiscogs'] and normkey.startswith(r'discogs')) or
                 (config.setting[r'purgeiTunes'] and normkey.startswith(r'itun')) or
                 (config.setting[r'purgeMusicIP'] and normkey.startswith(r'musicip')) or
                 (config.setting[r'purgeLastFM'] and re.match(r'^\W*last\W?fm', normkey)) or
@@ -151,6 +154,9 @@ class OriginsOblivionOptionsPage( OptionsPage ):
     PARENT = r'tags' # r'plugins' ?
 
     options = [ BoolOption(r'setting', r'purgeMBIDs', False),
+                BoolOption(r'setting', r'purgeTrackMBID', False),
+                BoolOption(r'setting', r'purgeReleaseMBID', False),
+                BoolOption(r'setting', r'purgeDiscogs', True),
                 BoolOption(r'setting', r'purgeiTunes', True),
                 BoolOption(r'setting', r'purgeLastFM', True),
                 BoolOption(r'setting', r'purgeMusicIP', True),
@@ -164,6 +170,21 @@ class OriginsOblivionOptionsPage( OptionsPage ):
         self.purgeMBIDs.setChecked(False)
         self.purgeMBIDs.setText(r'Purge MBIDs (release and track IDs not included)')
         self.box.addWidget(self.purgeMBIDs)
+        self.purgeTrackMBID = QtWidgets.QCheckBox(self)
+        self.purgeTrackMBID.setCheckable(True)
+        self.purgeTrackMBID.setChecked(False)
+        self.purgeTrackMBID.setText(r'Purge Track MBIDs')
+        self.box.addWidget(self.purgeTrackMBID)
+        self.purgeReleaseMBID = QtWidgets.QCheckBox(self)
+        self.purgeReleaseMBID.setCheckable(True)
+        self.purgeReleaseMBID.setChecked(False)
+        self.purgeReleaseMBID.setText(r'Purge Release MBIDs')
+        self.box.addWidget(self.purgeReleaseMBID)
+        self.purgeDiscogs = QtWidgets.QCheckBox(self)
+        self.purgeDiscogs.setCheckable(True)
+        self.purgeDiscogs.setChecked(True)
+        self.purgeDiscogs.setText(r'Purge Discogs tags')
+        self.box.addWidget(self.purgeDiscogs)
         self.purgeiTunes = QtWidgets.QCheckBox(self)
         self.purgeiTunes.setCheckable(True)
         self.purgeiTunes.setChecked(True)
@@ -189,6 +210,9 @@ class OriginsOblivionOptionsPage( OptionsPage ):
 
     def load( self ):
         self.purgeMBIDs.setChecked(config.setting[r'purgeMBIDs'])
+        self.purgeTrackMBID.setChecked(config.setting[r'purgeTrackMBID'])
+        self.purgeReleaseMBID.setChecked(config.setting[r'purgeReleaseMBID'])
+        self.purgeiTunes.setChecked(config.setting[r'purgeDiscogs'])
         self.purgeiTunes.setChecked(config.setting[r'purgeiTunes'])
         self.purgeLastFM.setChecked(config.setting[r'purgeLastFM'])
         self.purgeMusicIP.setChecked(config.setting[r'purgeMusicIP'])
@@ -196,6 +220,9 @@ class OriginsOblivionOptionsPage( OptionsPage ):
 
     def save( self ):
         config.setting[r'purgeMBIDs'] = self.purgeMBIDs.isChecked()
+        config.setting[r'purgeTrackMBID'] = self.purgeTrackMBID.isChecked()
+        config.setting[r'purgeReleaseMBID'] = self.purgeReleaseMBID.isChecked()
+        config.setting[r'purgeDiscogs'] = self.purgeiTunes.isChecked()
         config.setting[r'purgeiTunes'] = self.purgeiTunes.isChecked()
         config.setting[r'purgeLastFM'] = self.purgeLastFM.isChecked()
         config.setting[r'purgeMusicIP'] = self.purgeMusicIP.isChecked()
