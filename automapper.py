@@ -174,7 +174,8 @@ class AutoMapper():
                  r'keysig': r'key', r'retaildate': r'date', r'sourceid': r'discid', r'tdat': r'date',
                  r'ensemble': r'artist', r'name': r'title', r'catalog': r'catalognumber',
                  r'originator': r'encodedby', r'discogs_artist_name': r'artist', r'discogs_date': r'date',
-                 r'discogs_catalog': r'catalognumber', r'discogs_country': r'releasecountry', }
+                 r'discogs_catalog': r'catalognumber', r'discogs_country': r'releasecountry',
+                 r'discogs_discid': r'discid', }
 
     _splitfulMapping = { r'trkn':       (r'tracknumber', r'totaltracks'),
                          r'trck':       (r'tracknumber', r'totaltracks'),
