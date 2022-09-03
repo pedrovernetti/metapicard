@@ -270,6 +270,8 @@ class SuperComment( BaseAction ):
                 lastDiscNumber += 1
                 if (what not in albumFormat): albumFormat[what] = 1
                 else: albumFormat[what] += 1
+        if ((len(albumFormat) == 1) and (list(albumFormat.keys())[0] == r'digital')):
+            album.metadata[r'media'] == r'digital'
         if (not albumFormat): return r''
         if (albumFormat.get(r'', 0)):
             if (len(albumFormat) < 2): return r''
@@ -381,7 +383,7 @@ class SuperComment( BaseAction ):
         if (what[0] != r' '): what = r' ' + what
         return (r' ?;' if (re.match(r'^\s*$', what)) else (what + r'; '))
 
-    def _whereAndWhen( self, metadata ):
+    def _whereAndWhen( self, metadata, album ):
         when = metadata.get(r'date', r'')
         if (len(when) == 2):
             when = r'20' + when
@@ -400,6 +402,7 @@ class SuperComment( BaseAction ):
         where = metadata.get(r'releasecountry', metadata.get(r'~releasecountries', r'')).strip()
         metadata.pop(r'releasecountry', None)
         metadata.pop(r'~releasecountries', None)
+        if ((not where) and album and (album.metadata.get(r'media', r'') == r'digital')): where = r'XW'
         if (len(where) == 2): where = self._countryNames[where.upper()]
         if (when and where): return (r' ' + where + r' - ' + when + r';')
         elif (len(when)): return (r' ? - ' + when + r';')
@@ -409,7 +412,7 @@ class SuperComment( BaseAction ):
     def process( self, album, metadata, track, release ):
         comment = self._company(metadata)
         comment += self._what(metadata, (track.album if track else None))
-        comment += self._whereAndWhen(metadata)
+        comment += self._whereAndWhen(metadata, (track.album if track else None))
         metadata.pop(r'script', None) # release-related, since it is about the tracklist's script
         if (config.setting[r'includeBarcode']):
             barcode = metadata.get(r'barcode', r'')
