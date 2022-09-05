@@ -176,7 +176,7 @@ class AutoMapper():
                  r'originator': r'encodedby', r'discogs_artist_name': r'artist', r'discogs_date': r'date',
                  r'discogs_catalog': r'catalognumber', r'discogs_country': r'releasecountry',
                  r'discogs_discid': r'discid', r'text': r'lyricist', r'my comment': r'comment',
-                 r'tmoo': r'mood', }
+                 r'tmoo': r'mood', r'unsyncedlyrics': r'lyrics', }
 
     _splitfulMapping = { r'trkn':       (r'tracknumber', r'totaltracks'),
                          r'trck':       (r'tracknumber', r'totaltracks'),
